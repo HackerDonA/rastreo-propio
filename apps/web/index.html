@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Rastreo · Flota</title>
+    <meta name="description" content="Monitoreo GPS de flota vehicular en tiempo real" />
+    <script>
+      // Se aplica el tema ANTES de pintar, para que no haya un destello blanco
+      // al recargar con el modo oscuro activo.
+      (function () {
+        try {
+          var saved = localStorage.getItem('tema');
+          var dark = saved === 'oscuro' ||
+            (saved === null && window.matchMedia('(prefers-color-scheme: dark)').matches);
+          if (dark) document.documentElement.classList.add('dark');
+        } catch (e) {
+          /* localStorage puede fallar en modo privado; el tema claro es el respaldo */
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

@@ -1,0 +1,99 @@
+@import 'tailwindcss';
+@import 'maplibre-gl/dist/maplibre-gl.css';
+
+/*
+  Tailwind 4 usa el modo oscuro por preferencia del sistema. Aqui se redefine
+  para que dependa de la clase `dark` en <html>, y asi el conmutador manual
+  pueda ganarle a la preferencia del sistema en ambos sentidos.
+*/
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  /* Colores de estado. Se usan tanto en la interfaz como en los marcadores del
+     mapa, asi que estan en un solo lugar para que no se desincronicen. */
+  --color-estado-movimiento: oklch(0.72 0.19 145);
+  --color-estado-detenido: oklch(0.75 0.16 75);
+  --color-estado-sinsenal: oklch(0.65 0.02 260);
+  --color-estado-alerta: oklch(0.64 0.23 25);
+}
+
+:root {
+  --superficie: oklch(0.98 0.003 260);
+  --superficie-panel: oklch(1 0 0);
+  --borde: oklch(0.91 0.005 260);
+  --texto: oklch(0.22 0.01 260);
+  --texto-suave: oklch(0.52 0.015 260);
+}
+
+.dark {
+  --superficie: oklch(0.17 0.012 260);
+  --superficie-panel: oklch(0.21 0.014 260);
+  --borde: oklch(0.29 0.014 260);
+  --texto: oklch(0.96 0.003 260);
+  --texto-suave: oklch(0.68 0.015 260);
+}
+
+body {
+  background-color: var(--superficie);
+  color: var(--texto);
+  font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Utilidades sobre las variables de tema, para no repetirlas en cada componente. */
+@utility superficie {
+  background-color: var(--superficie);
+}
+@utility panel {
+  background-color: var(--superficie-panel);
+}
+@utility borde {
+  border-color: var(--borde);
+}
+@utility texto-suave {
+  color: var(--texto-suave);
+}
+
+/* La barra de desplazamiento por omision de Windows es muy pesada visualmente
+   dentro de un panel lateral estrecho. */
+.scroll-fino::-webkit-scrollbar {
+  width: 8px;
+}
+.scroll-fino::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scroll-fino::-webkit-scrollbar-thumb {
+  background: var(--borde);
+  border-radius: 4px;
+}
+
+/* MapLibre pinta sus controles con estilo claro fijo; se ajustan al tema. */
+.dark .maplibregl-ctrl-group {
+  background: var(--superficie-panel);
+}
+.dark .maplibregl-ctrl-group button + button {
+  border-top-color: var(--borde);
+}
+.dark .maplibregl-ctrl-icon {
+  filter: invert(1) hue-rotate(180deg);
+}
+.dark .maplibregl-ctrl-attrib {
+  background: color-mix(in oklch, var(--superficie-panel) 85%, transparent);
+  color: var(--texto-suave);
+}
+.dark .maplibregl-ctrl-attrib a {
+  color: var(--texto-suave);
+}
+
+@keyframes pulso {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+.pulso {
+  animation: pulso 2s ease-in-out infinite;
+}

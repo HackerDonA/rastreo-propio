@@ -1,0 +1,130 @@
+/**
+ * Barra superior: identidad, indicadores de flota y estado del enlace en vivo.
+ */
+
+import { useMemo } from 'react';
+import type { JSX } from 'react';
+
+import type { Unit } from '../lib/tipos.ts';
+
+interface Props {
+  readonly unidades: readonly Unit[];
+  readonly enVivo: boolean;
+  readonly oscuro: boolean;
+  readonly onCambiarTema: () => void;
+}
+
+interface IndicadorProps {
+  readonly etiqueta: string;
+  readonly valor: string;
+  readonly color?: string;
+}
+
+function Indicador({ etiqueta, valor, color }: IndicadorProps): JSX.Element {
+  return (
+    <div className="flex flex-col">
+      <span className="texto-suave text-[10px] tracking-wide uppercase">{etiqueta}</span>
+      <span
+        className="text-lg leading-tight font-semibold tabular-nums"
+        style={color === undefined ? undefined : { color }}
+      >
+        {valor}
+      </span>
+    </div>
+  );
+}
+
+export function BarraFlota({ unidades, enVivo, oscuro, onCambiarTema }: Props): JSX.Element {
+  const stats = useMemo(() => {
+    const enMovimiento = unidades.filter((u) => u.state === 'moving').length;
+    const detenidas = unidades.filter((u) => u.state === 'stopped').length;
+    const sinSenal = unidades.filter(
+      (u) => u.state === 'offline' || u.state === 'unknown',
+    ).length;
+
+    // Odometro total de la flota, en kilometros. Traccar lo acumula por unidad.
+    const kmTotales = unidades.reduce((acc, u) => acc + (u.position?.totalDistanceKm ?? 0), 0);
+
+    const conVelocidad = unidades.filter((u) => (u.position?.speedKmh ?? 0) > 1);
+    const velocidadMedia =
+      conVelocidad.length === 0
+        ? 0
+        : conVelocidad.reduce((acc, u) => acc + (u.position?.speedKmh ?? 0), 0) /
+          conVelocidad.length;
+
+    return { enMovimiento, detenidas, sinSenal, kmTotales, velocidadMedia };
+  }, [unidades]);
+
+  return (
+    <header className="borde panel flex shrink-0 flex-wrap items-center gap-x-6 gap-y-3 border-b px-4 py-3">
+      <div className="flex items-center gap-2.5">
+        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-white">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4.5 w-4.5" aria-hidden="true">
+            <path d="M12 21s7-5.5 7-11a7 7 0 1 0-14 0c0 5.5 7 11 7 11Z" strokeLinejoin="round" />
+            <circle cx="12" cy="10" r="2.5" />
+          </svg>
+        </div>
+        <div>
+          <h1 className="text-sm leading-tight font-semibold">Rastreo</h1>
+          <p className="texto-suave text-[11px] leading-tight">Monitoreo de flota</p>
+        </div>
+      </div>
+
+      <div className="borde hidden h-9 w-px bg-current opacity-10 sm:block" />
+
+      <div className="flex flex-1 flex-wrap items-center gap-x-6 gap-y-2">
+        <Indicador etiqueta="Unidades" valor={String(unidades.length)} />
+        <Indicador
+          etiqueta="En movimiento"
+          valor={String(stats.enMovimiento)}
+          color="#16a34a"
+        />
+        <Indicador etiqueta="Detenidas" valor={String(stats.detenidas)} color="#d97706" />
+        <Indicador etiqueta="Sin señal" valor={String(stats.sinSenal)} color="#64748b" />
+        <Indicador
+          etiqueta="Vel. promedio"
+          valor={`${Math.round(stats.velocidadMedia)} km/h`}
+        />
+        <Indicador
+          etiqueta="Odómetro flota"
+          valor={`${stats.kmTotales.toLocaleString('es-MX', { maximumFractionDigits: 0 })} km`}
+        />
+      </div>
+
+      <div className="flex items-center gap-3">
+        <div
+          className="borde flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px]"
+          title={
+            enVivo
+              ? 'La API mantiene abierta su conexión con Traccar'
+              : 'Sin conexión con Traccar. Revisa que los contenedores estén arriba.'
+          }
+        >
+          <span
+            className={`h-1.5 w-1.5 rounded-full ${enVivo ? 'pulso bg-green-500' : 'bg-red-500'}`}
+          />
+          <span className="texto-suave font-medium">{enVivo ? 'En vivo' : 'Sin conexión'}</span>
+        </div>
+
+        <button
+          type="button"
+          onClick={onCambiarTema}
+          className="borde texto-suave rounded-lg border p-2 transition hover:bg-black/5 dark:hover:bg-white/5"
+          aria-label={oscuro ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+          title={oscuro ? 'Modo claro' : 'Modo oscuro'}
+        >
+          {oscuro ? (
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4" aria-hidden="true">
+              <circle cx="12" cy="12" r="4" />
+              <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" strokeLinecap="round" />
+            </svg>
+          ) : (
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4" aria-hidden="true">
+              <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z" strokeLinejoin="round" />
+            </svg>
+          )}
+        </button>
+      </div>
+    </header>
+  );
+}
