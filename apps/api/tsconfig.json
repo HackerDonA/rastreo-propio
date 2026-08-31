@@ -1,0 +1,19 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": "src",
+    "types": ["node"],
+    "lib": ["ES2023"],
+    "module": "NodeNext",
+    "moduleResolution": "nodenext",
+
+    // Los imports se escriben con extension .ts, que es lo que ejecuta tsx en
+    // desarrollo sin paso de compilacion. rewriteRelativeImportExtensions las
+    // reescribe a .js al compilar, para que `pnpm build` produzca ESM valido
+    // para Node. Requiere TypeScript 5.7 o superior.
+    "allowImportingTsExtensions": true,
+    "rewriteRelativeImportExtensions": true
+  },
+  "include": ["src/**/*.ts"]
+}
