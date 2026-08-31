@@ -1,0 +1,29 @@
+{
+  "name": "rastreo-propio",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Plataforma autoalojada de rastreo GPS vehicular sobre Traccar",
+  "license": "MIT",
+  "author": "HackerDonA",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "packageManager": "pnpm@11.24.0",
+  "scripts": {
+    "infra:up": "docker compose --env-file .env -f infra/docker-compose.yml up -d",
+    "infra:down": "docker compose --env-file .env -f infra/docker-compose.yml down",
+    "infra:logs": "docker compose --env-file .env -f infra/docker-compose.yml logs -f traccar",
+    "infra:ps": "docker compose --env-file .env -f infra/docker-compose.yml ps",
+    "dev": "pnpm --parallel --filter \"./apps/*\" dev",
+    "build": "pnpm --recursive --filter \"./apps/*\" build",
+    "typecheck": "pnpm --recursive --filter \"./apps/*\" typecheck",
+    "lint": "pnpm --recursive --filter \"./apps/*\" lint",
+    "test": "pnpm --recursive --filter \"./apps/*\" test",
+    "simulate": "tsx scripts/simulate-fleet.ts"
+  },
+  "devDependencies": {
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3"
+  }
+}
