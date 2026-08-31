@@ -1,0 +1,89 @@
+# =============================================================================
+#  Caddyfile — plantilla para la FASE DE PRODUCCION (Raspberry Pi o VPS)
+# =============================================================================
+#  NO se usa en desarrollo local. En Windows, la API y el frontend corren
+#  directo en localhost sin proxy inverso ni HTTPS.
+#
+#  Copia a Caddyfile, cambia el dominio y los puertos, y arranca Caddy.
+#  Caddy consigue y renueva el certificado de Let's Encrypt solo: no hay que
+#  correr certbot ni programar renovaciones.
+#
+#  Detalles completos en docs/04-migrar-a-produccion.md
+#
+#  --------------------------------------------------------------------------
+#  ADVERTENCIA IMPORTANTE
+#  --------------------------------------------------------------------------
+#  Caddy solo sirve para el trafico HTTP/HTTPS: tu frontend y tu API.
+#
+#  Los RASTREADORES GPS NO PASAN POR AQUI. Ellos abren un socket TCP crudo
+#  (no HTTP) contra los puertos 5023, 5013, 5001, etc. Ese trafico va directo
+#  al contenedor de Traccar por port forwarding del router, sin TLS y sin
+#  proxy. Es asi por diseno: los equipos baratos no hablan TLS.
+#
+#  Por eso tampoco sirven Cloudflare Tunnel ni Tailscale para exponer los
+#  puertos de protocolo. Ver docs/02-conectar-mis-gps.md seccion (h).
+# =============================================================================
+
+# Reemplaza por tu hostname de DDNS. Ver docs/04-migrar-a-produccion.md sobre
+# por que SIEMPRE hay que apuntar los rastreadores a un hostname y nunca a una
+# IP: si la IP cambia, reconfigurar diez vehiculos por SMS es una tarde perdida.
+rastreo.midominio.duckdns.org {
+
+	# ---- Nuestra API (BFF) --------------------------------------------------
+	# Todo lo que empiece con /api va al BFF de Fastify.
+	handle /api/* {
+		reverse_proxy localhost:3000
+	}
+
+	# ---- WebSocket propio ---------------------------------------------------
+	# Caddy detecta y reenvia el upgrade de WebSocket automaticamente; no hace
+	# falta configuracion extra como en nginx.
+	handle /ws {
+		reverse_proxy localhost:3000
+	}
+
+	# ---- Frontend -----------------------------------------------------------
+	# En produccion el frontend es estatico (pnpm --filter web build).
+	# Ajusta la ruta a donde quede el dist/ en tu servidor.
+	handle {
+		root * /srv/rastreo-propio/apps/web/dist
+		try_files {path} /index.html
+		file_server
+		encode gzip zstd
+	}
+
+	# ---- Encabezados de seguridad -------------------------------------------
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+
+	log {
+		output file /var/log/caddy/rastreo.log {
+			roll_size 10mb
+			roll_keep 5
+		}
+	}
+}
+
+# =============================================================================
+#  OPCIONAL — interfaz de administracion de Traccar
+# =============================================================================
+#  Solo si quieres entrar a la interfaz nativa de Traccar desde internet, por
+#  ejemplo para generar un token nuevo sin estar frente al servidor.
+#
+#  Piensalo dos veces: esa interfaz da control total sobre todas las unidades.
+#  Si la publicas, ponle basic_auth encima como esta abajo, ADEMAS de la
+#  contrasena de Traccar.
+#
+#  Generar el hash de la contrasena:   caddy hash-password
+# =============================================================================
+# traccar.midominio.duckdns.org {
+# 	basic_auth {
+# 		admin $2a$14$REEMPLAZA_ESTO_POR_EL_HASH_QUE_GENERE_CADDY
+# 	}
+# 	reverse_proxy localhost:8082
+# }
