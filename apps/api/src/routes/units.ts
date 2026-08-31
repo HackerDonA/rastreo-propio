@@ -37,6 +37,37 @@ const tripsQuerySchema = z.object({
   to: z.iso.datetime({ offset: true }),
 });
 
+/**
+ * Categorias de vehiculo permitidas.
+ *
+ * Se reutiliza el campo `category` de Traccar en vez de inventar un atributo
+ * propio: ya existe, es texto libre pensado justo para agrupar unidades, y asi
+ * la categoria tambien se ve bien en la interfaz nativa de Traccar.
+ *
+ * La lista es cerrada a proposito: el frontend dibuja un icono por categoria, y
+ * un valor libre dejaria unidades sin icono.
+ */
+export const CATEGORIAS = [
+  'car',
+  'pickup',
+  'truck',
+  'van',
+  'bus',
+  'motorcycle',
+  'tractor',
+  'offroad',
+  'default',
+] as const;
+
+const patchBodySchema = z
+  .object({
+    name: z.string().trim().min(1, 'El nombre no puede estar vacío').max(80).optional(),
+    category: z.enum(CATEGORIAS).optional(),
+  })
+  .refine((v) => v.name !== undefined || v.category !== undefined, {
+    message: 'Hay que enviar al menos `name` o `category`',
+  });
+
 /** Fila cruda de tc_positions tal como la devuelve la consulta. */
 interface PositionRow {
   readonly latitude: string | number;
@@ -71,6 +102,33 @@ export function registerUnitRoutes(
     relay.setDevices(devices);
 
     return { units: buildUnits(devices, positions) };
+  });
+
+  /**
+   * Renombra una unidad o le cambia el icono.
+   *
+   * Traccar no tiene PATCH: su PUT reemplaza el objeto entero. Por eso aqui se
+   * lee la unidad CRUDA (sin validar, para no perder campos), se le encima el
+   * cambio, y se manda de vuelta completa. Ver `getRawDevice` en el cliente.
+   */
+  app.patch('/api/units/:id', async (request): Promise<{ unit: Unit }> => {
+    const { id } = paramsSchema.parse(request.params);
+    const cambios = patchBodySchema.parse(request.body);
+
+    const actual = await client.getRawDevice(id);
+    const actualizado = await client.updateDevice(id, { ...actual, ...cambios });
+
+    // Se devuelve la unidad completa, con su posicion, para que el frontend no
+    // tenga que recargar toda la flota tras un cambio de nombre.
+    const posiciones = await client.getLatestPositions();
+    const [unit] = buildUnits([actualizado], posiciones);
+    if (unit === undefined) {
+      throw new Error('No se pudo reconstruir la unidad tras actualizarla');
+    }
+
+    relay.upsertDevice(actualizado);
+    request.log.info({ id, cambios }, 'Unidad actualizada');
+    return { unit };
   });
 
   /**

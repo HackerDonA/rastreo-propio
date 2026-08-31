@@ -84,9 +84,20 @@ export class TraccarRelay {
     return this.connected;
   }
 
-  /** Refresca el catalogo de unidades con el que se construyen los mensajes. */
+  /** Reemplaza el catalogo completo de unidades. */
   public setDevices(devices: readonly TraccarDevice[]): void {
     this.devices = new Map(devices.map((d) => [d.id, d]));
+  }
+
+  /**
+   * Actualiza UNA unidad del catalogo sin tocar las demas.
+   *
+   * Existe aparte de `setDevices` a proposito: usar setDevices con un solo
+   * elemento borraria el resto de la flota del catalogo, y los siguientes
+   * mensajes del WebSocket saldrian sin las unidades desaparecidas.
+   */
+  public upsertDevice(device: TraccarDevice): void {
+    this.devices.set(device.id, device);
   }
 
   // --------------------------------------------------------------------------

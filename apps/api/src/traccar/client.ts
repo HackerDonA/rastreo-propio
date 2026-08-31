@@ -53,6 +53,7 @@ export class TraccarClient {
     path: string,
     schema: z.ZodType<T>,
     searchParams?: Record<string, string>,
+    init?: { method: 'PUT' | 'POST'; body: unknown },
   ): Promise<T> {
     const url = new URL(`${this.baseUrl}/api${path}`);
     for (const [key, value] of Object.entries(searchParams ?? {})) {
@@ -62,10 +63,13 @@ export class TraccarClient {
     let response: Response;
     try {
       response = await fetch(url, {
+        method: init?.method ?? 'GET',
         headers: {
           Authorization: `Bearer ${this.token}`,
           Accept: 'application/json',
+          ...(init === undefined ? {} : { 'Content-Type': 'application/json' }),
         },
+        ...(init === undefined ? {} : { body: JSON.stringify(init.body) }),
         signal: AbortSignal.timeout(20_000),
       });
     } catch (cause) {
@@ -147,6 +151,33 @@ export class TraccarClient {
    */
   public async getLatestPositions(): Promise<readonly TraccarPosition[]> {
     return this.request('/positions', z.array(traccarPositionSchema));
+  }
+
+  /**
+   * Una unidad, SIN validar ni recortar campos.
+   *
+   * Es deliberado que no pase por Zod. `PUT /api/devices/{id}` de Traccar
+   * reemplaza el objeto entero, no aplica un parche, y el Device real trae 15
+   * campos: phone, contact, model, expirationTime, calendarId, groupId,
+   * disabled... Si mandaramos de vuelta solo los campos que este proyecto
+   * modela, Zod habria descartado el resto y el PUT los BORRARIA en silencio.
+   *
+   * Por eso `updateDevice` recibe el objeto crudo con las modificaciones
+   * encima, y la validacion se aplica solo a la respuesta.
+   */
+  public async getRawDevice(id: number): Promise<Record<string, unknown>> {
+    return this.request(`/devices/${id}`, z.record(z.string(), z.unknown()));
+  }
+
+  /** Reemplaza una unidad. `device` debe ser el objeto COMPLETO. */
+  public async updateDevice(
+    id: number,
+    device: Record<string, unknown>,
+  ): Promise<TraccarDevice> {
+    return this.request(`/devices/${id}`, traccarDeviceSchema, undefined, {
+      method: 'PUT',
+      body: device,
+    });
   }
 
   /** Viajes detectados por Traccar en un rango de fechas. */
