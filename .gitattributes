@@ -1,0 +1,32 @@
+# Normaliza finales de linea. Trabajamos en Windows, pero el repositorio guarda
+# siempre LF para que los diffs no se ensucien y los scripts .sh no se rompan
+# cuando el proyecto migre a la Raspberry Pi o al VPS.
+* text=auto eol=lf
+
+# Los scripts de PowerShell si van con CRLF: es lo que espera Windows.
+*.ps1 text eol=crlf
+*.psm1 text eol=crlf
+*.cmd text eol=crlf
+*.bat text eol=crlf
+
+# Los scripts de shell SIEMPRE con LF. Un CRLF aqui produce el error
+# "bad interpreter: /bin/bash^M" y cuesta media hora de depuracion.
+*.sh text eol=lf
+
+# Binarios: git no debe tocarlos nunca.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.pdf binary
+*.docx binary
+*.xlsx binary
+*.zip binary
+*.gz binary
+*.dump binary
+
+# Archivos generados: no cuentan en las estadisticas de lenguaje de GitHub
+# y se colapsan en los diffs de los pull requests.
+pnpm-lock.yaml linguist-generated=true -diff

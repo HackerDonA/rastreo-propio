@@ -1,0 +1,46 @@
+# --- Secretos ---------------------------------------------------------------
+# NUNCA se versiona. Contiene la contrasena de PostgreSQL y el token de Traccar.
+.env
+.env.*
+!.env.example
+
+# --- Node -------------------------------------------------------------------
+node_modules/
+.pnpm-store/
+*.tsbuildinfo
+.eslintcache
+
+# --- Builds -----------------------------------------------------------------
+dist/
+build/
+coverage/
+apps/web/dist/
+apps/api/dist/
+
+# --- Datos locales de Docker ------------------------------------------------
+# Los volumenes son con nombre y viven en el motor de Docker, pero si alguna vez
+# se hace bind mount, que no acabe en el repositorio.
+infra/data/
+infra/logs/
+infra/media/
+
+# --- Respaldos de base de datos ---------------------------------------------
+# Contienen posiciones reales, IMEIs y correos. Fuera del repositorio.
+backups/
+*.dump
+*.sql.gz
+*.backup
+
+# --- Editores y sistema operativo -------------------------------------------
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.recommended.json
+.idea/
+Thumbs.db
+Desktop.ini
+*.swp
+
+# --- Logs -------------------------------------------------------------------
+*.log
+npm-debug.log*
+pnpm-debug.log*
