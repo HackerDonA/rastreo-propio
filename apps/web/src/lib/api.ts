@@ -20,32 +20,71 @@ export class ApiError extends Error {
   }
 }
 
-async function pedir<T>(ruta: string, signal?: AbortSignal): Promise<T> {
+interface OpcionesPeticion {
+  // El `| undefined` explicito es necesario con exactOptionalPropertyTypes:
+  // sin el, pasar `{ signal }` cuando signal viene sin valor no compila.
+  readonly signal?: AbortSignal | undefined;
+  readonly metodo?: 'GET' | 'PATCH' | undefined;
+  readonly cuerpo?: unknown;
+}
+
+async function pedir<T>(ruta: string, opciones: OpcionesPeticion = {}): Promise<T> {
+  const { signal, metodo = 'GET', cuerpo } = opciones;
+
   let respuesta: Response;
   try {
-    respuesta = await fetch(`${API_URL}${ruta}`, signal === undefined ? {} : { signal });
+    respuesta = await fetch(`${API_URL}${ruta}`, {
+      method: metodo,
+      ...(signal === undefined ? {} : { signal }),
+      ...(cuerpo === undefined
+        ? {}
+        : { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cuerpo) }),
+    });
   } catch (causa) {
     if (causa instanceof DOMException && causa.name === 'AbortError') throw causa;
-    throw new ApiError(
-      'No se pudo contactar a la API. ¿Está corriendo `pnpm dev`?',
-      0,
-    );
+    throw new ApiError('No se pudo contactar a la API. ¿Está corriendo `pnpm dev`?', 0);
   }
 
   if (!respuesta.ok) {
-    throw new ApiError(`La API respondió ${respuesta.status}`, respuesta.status);
+    // La API devuelve un mensaje util en el cuerpo; mostrarlo es mucho mejor
+    // que un "error 400" a secas cuando el usuario acaba de escribir un nombre.
+    let detalle = `La API respondió ${respuesta.status}`;
+    try {
+      const cuerpoError = (await respuesta.json()) as { error?: string; message?: string };
+      detalle = cuerpoError.message ?? cuerpoError.error ?? detalle;
+    } catch {
+      // Respuesta sin JSON: se queda el mensaje genérico.
+    }
+    throw new ApiError(detalle, respuesta.status);
   }
 
   return (await respuesta.json()) as T;
 }
 
 export async function obtenerUnidades(signal?: AbortSignal): Promise<readonly Unit[]> {
-  const datos = await pedir<{ units: readonly Unit[] }>('/api/units', signal);
+  const datos = await pedir<{ units: readonly Unit[] }>('/api/units', { signal });
   return datos.units;
 }
 
 export async function obtenerResumenFlota(signal?: AbortSignal): Promise<FleetSummary> {
-  return pedir<FleetSummary>('/api/fleet/summary', signal);
+  return pedir<FleetSummary>('/api/fleet/summary', { signal });
+}
+
+/**
+ * Cambia el nombre o el tipo de vehiculo de una unidad.
+ *
+ * El cambio se guarda en Traccar, no solo en el navegador: el nombre y la
+ * categoria viven en su base de datos y se ven tambien en su interfaz nativa.
+ */
+export async function actualizarUnidad(
+  id: number,
+  cambios: { readonly name?: string; readonly category?: string },
+): Promise<Unit> {
+  const datos = await pedir<{ unit: Unit }>(`/api/units/${String(id)}`, {
+    metodo: 'PATCH',
+    cuerpo: cambios,
+  });
+  return datos.unit;
 }
 
 export const wsUrl = WS_URL;

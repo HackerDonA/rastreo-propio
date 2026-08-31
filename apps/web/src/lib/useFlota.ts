@@ -21,6 +21,8 @@ export interface EstadoFlota {
   /** Momento de la ultima actualizacion recibida. */
   readonly ultimoMensaje: Date | null;
   readonly recargar: () => void;
+  /** Aplica en local una unidad ya guardada en el servidor. */
+  readonly aplicarUnidad: (unidad: Unit) => void;
 }
 
 const REINTENTO_BASE_MS = 1_000;
@@ -38,6 +40,16 @@ export function useFlota(): EstadoFlota {
 
   const recargar = useCallback(() => {
     setIntento((n) => n + 1);
+  }, []);
+
+  /**
+   * Refleja de inmediato un cambio ya confirmado por el servidor (renombrar,
+   * cambiar icono) sin esperar al siguiente mensaje del WebSocket, que solo
+   * llega cuando la unidad reporta una posicion nueva. Sin esto, renombrar un
+   * vehiculo detenido no se veria hasta que volviera a moverse.
+   */
+  const aplicarUnidad = useCallback((unidad: Unit) => {
+    setUnidades((previas) => previas.map((u) => (u.id === unidad.id ? unidad : u)));
   }, []);
 
   // --- Carga inicial --------------------------------------------------------
@@ -125,5 +137,5 @@ export function useFlota(): EstadoFlota {
     };
   }, []);
 
-  return { unidades, carga, error, enVivo, ultimoMensaje, recargar };
+  return { unidades, carga, error, enVivo, ultimoMensaje, recargar, aplicarUnidad };
 }

@@ -1,22 +1,34 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { JSX } from 'react';
 
+import { actualizarUnidad } from './lib/api.ts';
 import { BarraFlota } from './components/BarraFlota.tsx';
 import { FichaUnidad } from './components/FichaUnidad.tsx';
 import { MapaEnVivo } from './components/MapaEnVivo.tsx';
 import { PanelUnidades } from './components/PanelUnidades.tsx';
 import { useFlota } from './lib/useFlota.ts';
+import type { Categoria } from './lib/vehiculos.ts';
 
 /** Lee el tema aplicado por el script en linea de index.html. */
 function temaInicial(): boolean {
   return document.documentElement.classList.contains('dark');
 }
 
+/** Recupera el interruptor de nombres; por omision, encendidos. */
+function nombresIniciales(): boolean {
+  try {
+    return localStorage.getItem('mostrarNombres') !== 'no';
+  } catch {
+    return true;
+  }
+}
+
 export function App(): JSX.Element {
-  const { unidades, carga, error, enVivo, recargar } = useFlota();
+  const { unidades, carga, error, enVivo, recargar, aplicarUnidad } = useFlota();
   const [seleccionada, setSeleccionada] = useState<number | null>(null);
   const [oscuro, setOscuro] = useState(temaInicial);
   const [panelAbierto, setPanelAbierto] = useState(false);
+  const [mostrarNombres, setMostrarNombres] = useState(nombresIniciales);
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', oscuro);
@@ -36,6 +48,35 @@ export function App(): JSX.Element {
     setSeleccionada(id);
     setPanelAbierto(false);
   }, []);
+
+  const cambiarNombres = useCallback(() => {
+    setMostrarNombres((v) => {
+      const siguiente = !v;
+      try {
+        localStorage.setItem('mostrarNombres', siguiente ? 'si' : 'no');
+      } catch {
+        // En modo privado no se recuerda entre sesiones. Aceptable.
+      }
+      return siguiente;
+    });
+  }, []);
+
+  // Los errores se dejan propagar a propósito: la burbuja los atrapa y los
+  // muestra junto al campo que el usuario acaba de editar, que es donde
+  // sirven. Tragarlos aquí haría que un fallo pareciera un guardado exitoso.
+  const renombrar = useCallback(
+    async (id: number, nombre: string): Promise<void> => {
+      aplicarUnidad(await actualizarUnidad(id, { name: nombre }));
+    },
+    [aplicarUnidad],
+  );
+
+  const cambiarIcono = useCallback(
+    async (id: number, categoria: Categoria): Promise<void> => {
+      aplicarUnidad(await actualizarUnidad(id, { category: categoria }));
+    },
+    [aplicarUnidad],
+  );
 
   const unidadSeleccionada = unidades.find((u) => u.id === seleccionada) ?? null;
 
@@ -133,20 +174,45 @@ export function App(): JSX.Element {
             unidades={unidades}
             seleccionada={seleccionada}
             onSeleccionar={setSeleccionada}
+            onRenombrar={renombrar}
+            onCambiarIcono={cambiarIcono}
             oscuro={oscuro}
+            mostrarNombres={mostrarNombres}
           />
 
-          {/* Botón para abrir el cajón en pantallas chicas */}
-          <button
-            type="button"
-            onClick={() => {
-              setPanelAbierto(true);
-            }}
-            className="borde panel absolute top-4 left-4 z-10 rounded-lg border px-3 py-2
-                       text-sm font-medium shadow-lg md:hidden"
-          >
-            Unidades ({unidades.length})
-          </button>
+          {/* Controles sobre el mapa */}
+          <div className="absolute top-4 left-4 z-10 flex gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setPanelAbierto(true);
+              }}
+              className="borde panel rounded-lg border px-3 py-2 text-sm font-medium
+                         shadow-lg md:hidden"
+            >
+              Unidades ({unidades.length})
+            </button>
+
+            <button
+              type="button"
+              onClick={cambiarNombres}
+              aria-pressed={mostrarNombres}
+              title={
+                mostrarNombres
+                  ? 'Ocultar los nombres y dejar solo el ícono'
+                  : 'Mostrar el nombre de cada unidad'
+              }
+              className={`borde panel flex items-center gap-1.5 rounded-lg border px-2.5 py-2
+                          text-xs font-medium shadow-lg transition ${
+                            mostrarNombres ? '' : 'texto-suave'
+                          }`}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4" aria-hidden="true">
+                <path d="M4 7h16M4 12h10M4 17h7" strokeLinecap="round" />
+              </svg>
+              Nombres
+            </button>
+          </div>
 
           {unidadSeleccionada !== null && (
             <FichaUnidad

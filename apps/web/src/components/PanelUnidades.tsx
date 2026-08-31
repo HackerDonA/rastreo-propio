@@ -10,10 +10,12 @@ import type { JSX } from 'react';
 
 import {
   CLASES_ESTADO,
+  COLOR_ESTADO,
   ETIQUETA_ESTADO,
   type Unit,
   type UnitState,
 } from '../lib/tipos.ts';
+import { IconoVehiculo } from './IconoVehiculo.tsx';
 
 type Orden = 'nombre' | 'velocidad' | 'reciente' | 'estado';
 
@@ -207,7 +209,18 @@ export function PanelUnidades({ unidades, seleccionada, onSeleccionar }: Props):
                     }`}
                   >
                     <div className="mb-1 flex items-start justify-between gap-2">
-                      <span className="truncate text-sm font-medium">{u.name}</span>
+                      <span className="flex min-w-0 items-center gap-2">
+                        {/* Mismo icono y mismo color que en el mapa: es lo que
+                            permite reconocer la unidad sin leer el nombre. */}
+                        <span
+                          className="flex h-5 w-5 shrink-0 items-center justify-center
+                                     rounded-full text-white"
+                          style={{ backgroundColor: COLOR_ESTADO[u.state] }}
+                        >
+                          <IconoVehiculo categoria={u.category} className="h-3.5 w-3.5" />
+                        </span>
+                        <span className="truncate text-sm font-medium">{u.name}</span>
+                      </span>
                       <span
                         className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold
                                     ring-1 ring-inset ${CLASES_ESTADO[u.state]}`}
@@ -216,7 +229,7 @@ export function PanelUnidades({ unidades, seleccionada, onSeleccionar }: Props):
                       </span>
                     </div>
 
-                    <div className="texto-suave flex items-center gap-3 text-xs">
+                    <div className="texto-suave flex items-center gap-3 pl-7 text-xs">
                       <span className="font-mono">{u.uniqueId}</span>
                       {u.position !== null && (
                         <>
@@ -235,7 +248,7 @@ export function PanelUnidades({ unidades, seleccionada, onSeleccionar }: Props):
                       )}
                     </div>
 
-                    <div className="texto-suave mt-0.5 text-[11px]">
+                    <div className="texto-suave mt-0.5 pl-7 text-[11px]">
                       {tiempoRelativo(u.position?.fixTime ?? null)}
                     </div>
                   </button>
