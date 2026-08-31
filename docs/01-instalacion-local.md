@@ -261,8 +261,6 @@ Ver [`docs/adr/0002-bff-propio.md`](adr/0002-bff-propio.md).
 
 ## 5. Levantar la API y el frontend
 
-> Disponible a partir de la Fase 2.
-
 ```powershell
 pnpm dev
 ```
@@ -278,11 +276,18 @@ Comprueba la API:
 Invoke-RestMethod http://localhost:3000/health
 ```
 
+```
+status checks                                        wsClients uptimeSeconds
+------ ------                                        --------- -------------
+ok     @{postgres=ok; traccarSocket=conectado}               0            20
+```
+
+`traccarSocket: conectado` es la señal de que el relay de WebSocket abrió sesión
+con Traccar correctamente. Si dice `desconectado`, revisa `TRACCAR_API_TOKEN`.
+
 ---
 
 ## 6. Arrancar el simulador
-
-> Disponible a partir de la Fase 2.
 
 En **otra** ventana de PowerShell, dejando `pnpm dev` corriendo en la primera:
 
@@ -290,10 +295,53 @@ En **otra** ventana de PowerShell, dejando `pnpm dev` corriendo en la primera:
 pnpm simulate --units 10 --city cdmx
 ```
 
-Inyecta 10 vehículos por el puerto OsmAnd (5055). Aparecen solos en Traccar y en
-tu frontend: no hay que darlos de alta a mano.
+```
+  Simulador de flota  ·  Ciudad de Mexico
+  ----------------------------------------------------
+  Unidades:        10
+  Servidor:        http://127.0.0.1:5055  (protocolo OsmAnd)
+  ...
+  Dando de alta 10 unidad(es) en Traccar...
+    + SIM001  Nissan NP300 · Reparto 1
+    + SIM002  Ford Transit · Reparto 2
+    ...
+  [3:49:53 p.m.] tick    4  ·   10/10 en movimiento  ·   47 km/h promedio
+```
 
-Abre <http://localhost:5173> y deberías ver las 10 unidades moviéndose.
+Abre <http://localhost:5173> y verás las 10 unidades moviéndose.
+
+Opciones:
+
+| Bandera | Qué hace | Por omisión |
+|---|---|---|
+| `--units` | Cuántos vehículos simular (1–200) | 10 |
+| `--city` | `cdmx`, `monterrey` o `guadalajara` | `cdmx` |
+| `--interval` | Segundos entre reportes | 5 |
+| `--speed-factor` | Acelera el tiempo simulado | 1 |
+
+> **El simulador da de alta sus unidades por la API, no solas.** Traccar
+> **rechaza** con `WARN: Unknown device` y HTTP 400 cualquier identificador que
+> no conozca. Existe una opción para desactivar esa protección
+> (`database.registerUnknown`), pero dejarla encendida significa que cualquiera
+> que alcance tu puerto puede crear unidades en tu servidor. Por eso el
+> simulador las registra explícitamente — que además es lo que harás con los
+> rastreadores reales.
+
+Para probar el puerto a mano, sin el simulador, primero **da de alta la unidad**
+en Traccar (Configuración → Dispositivos → +) con el identificador `PRUEBA001`, y
+luego:
+
+```powershell
+$ts = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
+Invoke-RestMethod "http://localhost:5055/?id=PRUEBA001&lat=19.4326&lon=-99.1332&timestamp=$ts&speed=0&bearing=0"
+```
+
+Si responde HTTP 400, casi siempre es que esa unidad no existe en Traccar.
+
+> **`speed` va en NUDOS, no en km/h.** Traccar guarda todas las velocidades en
+> nudos; el decodificador de OsmAnd interpreta el parámetro así
+> ([`OsmAndProtocolDecoder.java:152`](https://github.com/traccar/traccar/blob/master/src/main/java/org/traccar/protocol/OsmAndProtocolDecoder.java#L152)).
+> Para convertir: **km/h ÷ 1.852 = nudos**. 60 km/h son 32.4 nudos.
 
 Para probar el puerto a mano, sin el simulador:
 

@@ -137,26 +137,32 @@ Abre <http://localhost:5173> y verás la flota moviéndose.
 - [x] Puertos de protocolo documentados equipo por equipo
 
 **Simulación y desarrollo**
-- [ ] Simulador de 10+ vehículos con rutas realistas, paradas y arranques
-- [ ] Rutas precargadas de CDMX, Monterrey y Guadalajara (funciona sin internet)
+- [x] Simulador de 10+ vehículos con rutas realistas, paradas y arranques
+- [x] Rutas precargadas de CDMX, Monterrey y Guadalajara (funciona sin internet)
+- [x] Alta automática de las unidades simuladas vía API de Traccar
 
 **API / BFF**
-- [ ] Cliente tipado de Traccar con bootstrap de sesión para el WebSocket
-- [ ] Relay de WebSocket con agrupamiento de emisiones
-- [ ] `GET /api/units` — flota completa con última posición, en una sola llamada
-- [ ] `GET /api/units/:id/history` — con simplificación de ruta y paginación
-- [ ] `GET /api/fleet/summary` — kilómetros del día, unidades activas, alertas
+- [x] Cliente tipado de Traccar con bootstrap de sesión para el WebSocket
+- [x] Relay de WebSocket con agrupamiento de emisiones (10× menos mensajes)
+- [x] `GET /api/units` — flota completa con última posición, en una sola llamada
+- [x] `GET /api/units/:id/history` — con simplificación Douglas-Peucker
+- [x] `GET /api/units/:id/trips` — viajes detectados por Traccar
+- [x] `GET /api/fleet/summary` — kilómetros del día y unidades activas
 - [ ] Módulo de mantenimientos (CRUD + plantillas + job horario)
 
 **Frontend**
-- [ ] Mapa en vivo con agrupamiento de marcadores y rumbo
-- [ ] Panel lateral con buscador, filtro por estado y orden configurable
-- [ ] Dashboard de flota
-- [ ] Detalle por vehículo: Mapa · Historial · Mantenimientos
-- [ ] Modo claro y oscuro
+- [x] Mapa en vivo con agrupamiento de marcadores y rumbo
+- [x] Panel lateral con buscador, filtro por estado y orden configurable
+- [x] Indicadores de flota en la barra superior
+- [x] Ficha de detalle de la unidad seleccionada
+- [x] Modo claro y oscuro, y diseño responsivo
+- [x] Estados de carga, vacío y error resueltos
+- [ ] Vista de historial con selector de rango de fechas
+- [ ] Vista de mantenimientos con barras de progreso
 
 **Operación**
 - [x] ADRs de las decisiones de arquitectura
+- [x] Pruebas de las conversiones de unidades y la simplificación de rutas
 - [ ] Scripts de respaldo y restauración (PowerShell y Bash)
 - [ ] CI con lint, typecheck, tests y build
 - [ ] Guía de migración a producción (Raspberry Pi / VPS)
@@ -214,7 +220,27 @@ navegador no puede inyectar la cookie de otro origen en un WebSocket.
 
 **Las unidades importan más que los tipos.** Traccar guarda toda velocidad en
 **nudos**, incluido el parámetro `speed` del protocolo OsmAnd. TypeScript no te
-salva de mandar 60 creyendo que son km/h cuando el servidor entiende 111.
+salva de mandar 60 creyendo que son km/h cuando el servidor entiende 111. Por eso
+las conversiones viven en funciones puras con pruebas: un error ahí no lanza
+ninguna excepción, solo muestra un número equivocado que nadie nota.
+
+**Un mensaje de error genérico puede ser una decisión de seguridad.** Traccar
+responde `HTTP 400 · Unknown device` a cualquier identificador que no conozca, y
+la tentación es apagar esa validación con `database.registerUnknown`. Pero eso
+significa que cualquiera que alcance el puerto puede crear unidades en tu
+servidor. La salida correcta fue que el simulador registre las suyas por la API.
+
+**El estado que se muestra casi nunca es el estado que devuelve la API.**
+Traccar distingue `online`/`offline`, pero para quien mira la pantalla un
+vehículo conectado y detenido no es lo mismo que uno circulando, y uno que
+Traccar cree conectado pero lleva media hora sin fix es un tercer caso. El estado
+útil se deriva de la velocidad y de la antigüedad del último reporte.
+
+**Agrupar mensajes no es optimización prematura cuando el reloj no lo decides
+tú.** Diez unidades reportando cada segundo son diez mensajes por segundo *por
+navegador abierto*. El relay los acumula en un buffer indexado por unidad y lo
+vacía cada 750 ms: medido, 3.3 posiciones/s de entrada se convierten en 0.33
+mensajes/s de salida, sin perder un solo dato.
 
 ---
 
