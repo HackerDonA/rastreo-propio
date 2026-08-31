@@ -199,23 +199,46 @@ export type CityName = keyof typeof CITIES;
 export const CITY_NAMES = Object.keys(CITIES) as readonly CityName[];
 
 /**
- * Nombres de vehiculo con sabor a flota real, para que la lista del frontend
- * se vea como algo que alguien usaria y no como "unit-1, unit-2, unit-3".
+ * Categorias de vehiculo que entiende el frontend. Se guardan en el campo
+ * `category` de Traccar y determinan el icono de cada unidad en el mapa.
  */
-export const VEHICLE_NAMES: readonly string[] = [
-  'Nissan NP300 · Reparto 1',
-  'Ford Transit · Reparto 2',
-  'Chevrolet Tornado · Reparto 3',
-  'Nissan Urvan · Personal',
-  'Isuzu ELF · Carga 1',
-  'Hino 300 · Carga 2',
-  'VW Crafter · Reparto 4',
-  'Toyota Hilux · Supervision',
-  'Ram 700 · Reparto 5',
-  'Mercedes Sprinter · Carga 3',
-  'Nissan Frontier · Campo 1',
-  'Ford F-150 · Campo 2',
-  'Chevrolet Silverado · Campo 3',
-  'Kenworth T370 · Carga 4',
-  'Freightliner M2 · Carga 5',
+export type VehicleCategory =
+  | 'car'
+  | 'pickup'
+  | 'truck'
+  | 'van'
+  | 'bus'
+  | 'motorcycle'
+  | 'tractor'
+  | 'offroad';
+
+export interface VehicleProfile {
+  readonly name: string;
+  readonly category: VehicleCategory;
+}
+
+/**
+ * Flota de ejemplo con sabor a algo real, para que la lista del frontend no se
+ * vea como "unit-1, unit-2, unit-3".
+ *
+ * Las categorias estan mezcladas a proposito: con todas las unidades del mismo
+ * tipo, los iconos del mapa serian identicos y no se podria comprobar que el
+ * indice visual funciona.
+ */
+export const VEHICLES: readonly VehicleProfile[] = [
+  { name: 'Nissan NP300 · Reparto 1', category: 'pickup' },
+  { name: 'Ford Transit · Reparto 2', category: 'van' },
+  { name: 'Chevrolet Tornado · Reparto 3', category: 'pickup' },
+  { name: 'Nissan Urvan · Personal', category: 'van' },
+  { name: 'Isuzu ELF · Carga 1', category: 'truck' },
+  { name: 'Hino 300 · Carga 2', category: 'truck' },
+  { name: 'Italika 150 · Mensajería', category: 'motorcycle' },
+  { name: 'Toyota Hilux · Supervisión', category: 'offroad' },
+  { name: 'Kenworth T680 · Foráneo 1', category: 'tractor' },
+  { name: 'Mercedes Sprinter · Carga 3', category: 'van' },
+  { name: 'Jetta · Administración', category: 'car' },
+  { name: 'Ford F-150 · Campo 2', category: 'pickup' },
+  { name: 'Autobús · Personal 1', category: 'bus' },
+  { name: 'Freightliner M2 · Carga 4', category: 'truck' },
+  { name: 'Ram 700 · Reparto 5', category: 'pickup' },
 ];

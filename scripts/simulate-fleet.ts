@@ -24,7 +24,15 @@
  * rastreadores reales.
  */
 
-import { CITIES, CITY_NAMES, VEHICLE_NAMES, type City, type CityName, type Coord } from './routes.ts';
+import {
+  CITIES,
+  CITY_NAMES,
+  VEHICLES,
+  type City,
+  type CityName,
+  type Coord,
+  type VehicleCategory,
+} from './routes.ts';
 
 // ============================================================================
 //  Argumentos de linea de comandos
@@ -124,6 +132,7 @@ class SimulatedUnit {
   /** Identificador que Traccar usa como uniqueId. */
   public readonly deviceId: string;
   public readonly name: string;
+  public readonly category: VehicleCategory;
 
   private readonly loop: readonly Coord[];
   /** Indice del segmento actual del circuito. */
@@ -145,7 +154,10 @@ class SimulatedUnit {
 
   constructor(index: number, loop: readonly Coord[]) {
     this.deviceId = `SIM${String(index + 1).padStart(3, '0')}`;
-    this.name = VEHICLE_NAMES[index % VEHICLE_NAMES.length] ?? `Unidad ${index + 1}`;
+    const perfil = VEHICLES[index % VEHICLES.length];
+    this.name = perfil?.name ?? `Unidad ${index + 1}`;
+    // El tipo determina el icono de la unidad en el mapa.
+    this.category = perfil?.category ?? 'truck';
     this.loop = loop;
 
     // Cada unidad arranca en un punto distinto del circuito, para que no salgan
@@ -313,9 +325,13 @@ async function ensureDevices(
   const existing = (await listResponse.json()) as readonly TraccarDevice[];
   const known = new Set(existing.map((d) => d.uniqueId));
 
+  // Solo se crean las que faltan. Las que ya existen NO se tocan: si el usuario
+  // renombro una unidad o le cambio el icono desde el mapa, volver a correr el
+  // simulador no debe deshacer ese cambio.
   const missing = units.filter((u) => !known.has(u.deviceId));
   if (missing.length === 0) {
     console.log(`  Las ${units.length} unidades ya existen en Traccar.`);
+    console.log('  (no se modifican: se respetan los nombres e iconos que hayas puesto)');
     return;
   }
 
@@ -327,7 +343,7 @@ async function ensureDevices(
       body: JSON.stringify({
         name: unit.name,
         uniqueId: unit.deviceId,
-        category: 'truck',
+        category: unit.category,
       }),
       signal: AbortSignal.timeout(15_000),
     });
