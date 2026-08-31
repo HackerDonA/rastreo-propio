@@ -145,13 +145,17 @@ Abre <http://localhost:5173> y verás la flota moviéndose.
 - [x] Cliente tipado de Traccar con bootstrap de sesión para el WebSocket
 - [x] Relay de WebSocket con agrupamiento de emisiones (10× menos mensajes)
 - [x] `GET /api/units` — flota completa con última posición, en una sola llamada
+- [x] `PATCH /api/units/:id` — renombrar y cambiar tipo de vehículo
 - [x] `GET /api/units/:id/history` — con simplificación Douglas-Peucker
 - [x] `GET /api/units/:id/trips` — viajes detectados por Traccar
 - [x] `GET /api/fleet/summary` — kilómetros del día y unidades activas
 - [ ] Módulo de mantenimientos (CRUD + plantillas + job horario)
 
 **Frontend**
-- [x] Mapa en vivo con agrupamiento de marcadores y rumbo
+- [x] Mapa en vivo con burbuja de identificación sobre cada vehículo
+- [x] Ícono por tipo de vehículo (camioneta, camión, van, moto, tractocamión…)
+- [x] Renombrar unidades y cambiar su ícono desde el propio mapa
+- [x] Flecha de rumbo y color por estado, compartidos entre mapa y lista
 - [x] Panel lateral con buscador, filtro por estado y orden configurable
 - [x] Indicadores de flota en la barra superior
 - [x] Ficha de detalle de la unidad seleccionada
@@ -241,6 +245,21 @@ tú.** Diez unidades reportando cada segundo son diez mensajes por segundo *por
 navegador abierto*. El relay los acumula en un buffer indexado por unidad y lo
 vacía cada 750 ms: medido, 3.3 posiciones/s de entrada se convierten en 0.33
 mensajes/s de salida, sin perder un solo dato.
+
+**La opción más rápida y la opción correcta pueden ser incompatibles, y gana el
+requisito.** Las unidades se dibujaban con una capa de símbolos de MapLibre, que
+renderiza la GPU y aguanta miles de puntos. Pero una capa de símbolos no es HTML:
+encima no se puede poner un menú ni un campo para renombrar. Cuando el requisito
+pasó a "identificar y editar cada unidad desde el mapa", hubo que cambiar a
+marcadores DOM y asumir el costo — mitigado creando cada marcador una sola vez y
+moviéndolo después, en vez de recrearlos en cada actualización.
+
+**Un `PUT` que reemplaza el objeto entero convierte a la validación en un
+peligro.** Traccar no tiene `PATCH`: su `PUT /devices/{id}` sustituye todo el
+registro, y un `Device` real trae 15 campos. Si se leyera la unidad con el
+esquema Zod del proyecto —que solo modela ocho— los otros siete se descartarían
+al validar y el `PUT` los **borraría sin error alguno**. La lectura previa a un
+reemplazo se hace en crudo, y la validación se aplica solo a la respuesta.
 
 ---
 
