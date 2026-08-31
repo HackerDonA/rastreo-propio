@@ -1,0 +1,204 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE properties SYSTEM 'http://java.sun.com/dtd/properties.dtd'>
+<!--
+  ============================================================================
+   Configuracion de Traccar 6.15.3 para rastreo-propio
+  ============================================================================
+
+   OJO AL EDITAR ESTE ARCHIVO: es XML, y XML PROHIBE la secuencia de dos
+   guiones seguidos dentro de un comentario. Si separas secciones con una
+   linea de guiones, Traccar arranca en bucle con este error:
+       ERROR: Main method error - SAXParseException (... < Config:45 ...)
+   Por eso aqui todos los separadores son con signos de igual.
+
+   Este archivo SI se versiona en el repositorio, asi que aqui NO va ninguna
+   credencial. La conexion a PostgreSQL entra por variables de entorno desde
+   docker-compose.yml (CONFIG_USE_ENVIRONMENT_VARIABLES=true), que tienen
+   precedencia sobre lo que se escriba aqui.
+
+   Documentacion de cada clave: https://www.traccar.org/configuration-file/
+   Fuente de verdad real:       src/main/java/org/traccar/config/Keys.java
+
+   ============================================================================
+   NOTA SOBRE conf/default.xml
+   ============================================================================
+   Mucha documentacion vieja (y varios tutoriales) dicen que los puertos de
+   cada protocolo viven en conf/default.xml. ESO YA NO ES CIERTO en Traccar 6.
+   Ese archivo desaparecio; hoy los 268 puertos por omision estan compilados en
+   src/main/java/org/traccar/config/PortConfigSuffix.java. Por eso no hace
+   falta listar aqui ningun puerto: todos los protocolos arrancan solos con su
+   puerto por omision, y solo son alcanzables desde Windows los que publicamos
+   en docker-compose.yml.
+
+   Si algun dia quieres que Traccar arranque SOLO los protocolos que usas
+   (menos sockets abiertos, menos memoria), descomenta protocols.enable mas
+   abajo. Se deja apagado a proposito, porque durante la identificacion de un
+   rastreador desconocido conviene tener todos los puertos escuchando.
+  ============================================================================
+-->
+<properties>
+
+    <!--
+        ====================================================================
+        BASE DE DATOS
+        ====================================================================
+        database.url / database.user / database.password llegan por entorno.
+        El driver se declara aqui porque no es secreto y documenta que esto
+        corre sobre PostgreSQL, no sobre el H2 que Traccar trae por omision.
+    -->
+    <entry key='database.driver'>org.postgresql.Driver</entry>
+
+    <!--
+        ====================================================================
+        RETENCION DE HISTORIAL
+        ====================================================================
+        AVISO: database.historyDays YA NO EXISTE en Traccar 6.15. Esa clave
+        fue eliminada; hoy el servidor no tiene ninguna opcion de retencion
+        automatica. Verificado contra Keys.java.
+
+        Estrategia de este proyecto, en dos partes:
+
+          1. NO GUARDAR BASURA. Los filtros de la seccion siguiente. Es lo
+             que de verdad controla el crecimiento: una posicion invalida o
+             duplicada ocupa lo mismo que una buena y no sirve para nada.
+
+          2. PURGA MANUAL. scripts/purge-history.ps1 (Fase 5), que borra
+             posiciones mas viejas que N dias respetando la ultima posicion
+             de cada unidad. Viene APAGADO por omision.
+
+        CUANTOS DATOS SON: 10 unidades reportando cada 15 s
+            10 x 4/min = 40/min = 57,600/dia = ~1.7 MILLONES de filas al mes
+            ~21 millones al ano, ~6 a 8 GB con atributos e indices.
+
+        PostgreSQL se rie de eso: Traccar ya crea el indice
+        position_deviceid_fixtime sobre tc_positions (changelog-4.7.xml),
+        que es justo el que necesitan las consultas de historial. Por eso
+        este proyecto NO agrega ningun indice a las tablas tc_*.
+
+        CUANDO PREOCUPARSE: cuando se cumpla lo primero de
+            a) ~50 a 100 millones de filas en tc_positions, o
+            b) una consulta de historial de un mes tarde mas de ~1 segundo.
+        Ahi tocan dos caminos: particionar tc_positions por mes, o migrar a
+        TimescaleDB (Traccar publica un compose de ejemplo para eso). Con 10
+        unidades eso son 2 a 4 anos de operacion. No es un problema de hoy.
+    -->
+
+    <!--
+        ====================================================================
+        FILTROS DE ENTRADA
+        ====================================================================
+        Se aplican ANTES de escribir en la base. Cada uno evita una clase de
+        problema concreta que aparece en docs/02-conectar-mis-gps.md.
+    -->
+    <entry key='filter.enable'>true</entry>
+
+    <!--
+        Descarta posiciones que el propio equipo marca como invalidas (sin
+        fix de GPS). Sin esto, un rastreador en un estacionamiento
+        subterraneo llena la base de puntos inutiles.
+    -->
+    <entry key='filter.invalid'>true</entry>
+
+    <!--
+        Descarta coordenadas 0,0. Esta es la causa del sintoma clasico
+        "mi vehiculo aparece en el mar cerca de Africa": el equipo reporta
+        antes de conseguir fix de GPS y manda ceros.
+    -->
+    <entry key='filter.zero'>true</entry>
+
+    <!--
+        Descarta reportes con la misma marca de tiempo que el anterior.
+        Los equipos baratos reenvian el mismo paquete cuando no reciben ACK.
+    -->
+    <entry key='filter.duplicate'>true</entry>
+
+    <!--
+        Descarta mensajes sin ubicacion GPS (latidos, avisos de estado).
+        Si no se filtran, Traccar los guarda repitiendo la ultima ubicacion
+        conocida, y el vehiculo "parece" reportando cuando en realidad no
+        tiene senal de GPS.
+    -->
+    <entry key='filter.outdated'>true</entry>
+
+    <!--
+        Segundos. Descarta posiciones con fecha en el futuro. Un equipo con
+        el reloj mal configurado o con la zona horaria equivocada manda
+        fechas adelantadas y descuadra todos los reportes. 1 hora de
+        tolerancia. El valor por omision de Traccar es 86400 (24 h), que
+        para nuestro caso es demasiado laxo.
+    -->
+    <entry key='filter.future'>3600</entry>
+
+    <!--
+        Segundos. Descarta posiciones con fecha muy vieja. Los equipos
+        guardan posiciones en memoria cuando pierden la senal y las
+        descargan de golpe al reconectar; 7 dias es margen suficiente para
+        eso sin aceptar basura de un equipo con el reloj en 1970.
+    -->
+    <entry key='filter.past'>604800</entry>
+
+    <!--
+        ====================================================================
+        REGISTRO (LOGS)
+        ====================================================================
+        logger.console manda el log a stdout, que es lo que hace que funcione
+            docker compose logs -f traccar
+        Sin esto el log se queda dentro del contenedor en /opt/traccar/logs y
+        hay que entrar a buscarlo. Es la herramienta numero 1 para saber si
+        un rastreador esta llegando. Ver docs/02-conectar-mis-gps.md (c).
+
+        logger.level:
+          info  = operacion normal. Deja este valor.
+          debug = imprime el CONTENIDO CRUDO de cada paquete recibido. Es lo
+                  que necesitas para identificar un rastreador desconocido,
+                  pero llena el disco rapido. Enciendelo, identifica el
+                  equipo, y REGRESALO a info.
+    -->
+    <entry key='logger.console'>true</entry>
+    <entry key='logger.level'>info</entry>
+
+    <!--
+        ====================================================================
+        PRIVACIDAD
+        ====================================================================
+        Traccar envia estadisticas anonimas de uso a traccar.org por omision.
+        No incluye ubicaciones, pero este es un servidor personal y no hay
+        motivo para reportar nada. Cadena vacia = desactivado.
+    -->
+    <entry key='server.statistics'></entry>
+
+    <!--
+        ====================================================================
+        DETECCION DE VIAJES Y PARADAS
+        ====================================================================
+        Alimentan a /api/reports/trips, que nuestro BFF expone en
+        GET /api/units/:id/trips. Valores pensados para vehiculos urbanos.
+    -->
+
+    <!--
+        Metros. Distancia minima para considerar que hubo un viaje. Debajo
+        de esto es deriva del GPS con el vehiculo estacionado.
+    -->
+    <entry key='report.trip.minimalTripDistance'>500</entry>
+
+    <!-- Segundos. Duracion minima de un viaje: 1 minuto. -->
+    <entry key='report.trip.minimalTripDuration'>60</entry>
+
+    <!--
+        Segundos. Tiempo detenido para cerrar un viaje: 5 minutos. Mas bajo
+        y cada semaforo largo parte el viaje en dos.
+    -->
+    <entry key='report.trip.minimalParkingDuration'>300</entry>
+
+    <!--
+        ====================================================================
+        OPCIONAL: limitar los protocolos que arrancan
+        ====================================================================
+        Descomenta para que Traccar abra SOLO estos puertos en vez de los
+        268. Util cuando ya sepas exactamente que equipos tienes (fase de
+        produccion). Mientras estes identificando rastreadores, dejalo
+        comentado: necesitas todos los puertos escuchando para poder probar.
+    -->
+    <!-- <entry key='protocols.enable'>osmand,gt06,h02,gps103,teltonika</entry> -->
+
+</properties>

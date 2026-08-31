@@ -1,0 +1,176 @@
+# =============================================================================
+#  rastreo-propio — infraestructura local
+# =============================================================================
+#  Dentro de Docker corren SOLO Traccar y PostgreSQL. La API (Fastify) y el
+#  frontend (Vite) corren NATIVOS en Windows con recarga en caliente normal.
+#  Por eso no hay ningun bind mount de codigo aqui: el problema clasico de
+#  "Docker en Windows va lento" viene de montar el codigo dentro del contenedor,
+#  y en este proyecto eso no ocurre.
+#
+#  Uso:  docker compose --env-file ../.env up -d
+#  (o, desde la raiz del repo:  pnpm infra:up)
+# =============================================================================
+
+name: rastreo-propio
+
+services:
+  # ---------------------------------------------------------------------------
+  #  PostgreSQL 16 — base de datos compartida
+  # ---------------------------------------------------------------------------
+  #  Aloja DOS esquemas dentro de la MISMA base de datos:
+  #    · public  -> tablas tc_* que crea y administra Traccar (solo las leemos)
+  #    · app     -> nuestras tablas de mantenimientos y avisos
+  #  Ver docs/adr/0004-schema-app-separado.md para el porque.
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: rastreo-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?falta POSTGRES_DB en .env}
+      POSTGRES_USER: ${POSTGRES_USER:?falta POSTGRES_USER en .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?falta POSTGRES_PASSWORD en .env}
+      # Acelera el arranque inicial y evita sorpresas de collation entre
+      # Windows y Linux al restaurar un respaldo en otra maquina.
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+    ports:
+      # Publicado SOLO en 127.0.0.1: nuestra API corre nativa en Windows y
+      # necesita llegar a la base, pero PostgreSQL no tiene por que quedar
+      # expuesto al resto de la red local.
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    # Con 10 unidades reportando cada 15 s la base recibe ~4 inserciones por
+    # segundo. Estos valores le dan holgura sin comerse la RAM de la maquina.
+    command:
+      - postgres
+      - -c
+      - shared_buffers=256MB
+      - -c
+      - max_connections=100
+
+  # ---------------------------------------------------------------------------
+  #  Traccar 6.15.3 — motor de ingesta y decodificacion de protocolos GPS
+  # ---------------------------------------------------------------------------
+  #  Version fijada a proposito (no :latest): una actualizacion silenciosa de
+  #  Traccar puede migrar el esquema de la base y romper nuestras consultas.
+  #  Actualizar es una decision consciente, con respaldo previo.
+  # ---------------------------------------------------------------------------
+  traccar:
+    image: traccar/traccar:6.15.3-alpine
+    container_name: rastreo-traccar
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # Traccar lee configuracion de variables de entorno solo si esta bandera
+      # esta encendida. La conversion de nombres es:
+      #   database.url  -> DATABASE_URL       (punto -> guion bajo)
+      #   logger.level  -> LOGGER_LEVEL       (camelCase se parte en palabras)
+      # Verificado en Config.java:141 de traccar/traccar.
+      #
+      # Gracias a esto NINGUNA credencial vive en traccar.xml, que si se
+      # versiona en el repositorio.
+      CONFIG_USE_ENVIRONMENT_VARIABLES: "true"
+      DATABASE_DRIVER: org.postgresql.Driver
+      DATABASE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
+      DATABASE_USER: ${POSTGRES_USER}
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      # -----------------------------------------------------------------------
+      #  INTERFAZ WEB Y API DE TRACCAR
+      # -----------------------------------------------------------------------
+      # Aqui creas el usuario administrador y generas el token de API.
+      # Solo en 127.0.0.1: nuestro frontend nunca habla directo con Traccar,
+      # siempre pasa por el BFF. Ver docs/adr/0002-bff-propio.md.
+      - "127.0.0.1:${TRACCAR_WEB_PORT:-8082}:8082"
+
+      # -----------------------------------------------------------------------
+      #  PUERTOS DE PROTOCOLO  (expuestos a toda la red local, a proposito)
+      # -----------------------------------------------------------------------
+      # Estos SI van en 0.0.0.0 porque tienen que ser alcanzables desde otros
+      # equipos: el celular con Traccar Client en la misma WiFi, y mas adelante
+      # los rastreadores reales cuando el servidor este en produccion.
+      #
+      # Cada puerto abierto es superficie de ataque. Abre solo los que uses y
+      # comenta el resto. La lista completa de los 200+ protocolos esta en
+      # conf/default.xml dentro del contenedor:
+      #   docker compose exec traccar cat /opt/traccar/conf/default.xml
+      #
+      # ---- 5055 · osmand -----------------------------------------------------
+      # HTTP simple, no binario. Lo usan:
+      #   · la app Traccar Client (Android/iOS)
+      #   · nuestro script scripts/simulate-fleet.ts
+      #   · pruebas manuales con curl
+      # Es el unico puerto imprescindible para desarrollar sin hardware real.
+      - "${PORT_OSMAND:-5055}:5055"
+
+      # ---- 5023 · gt06 -------------------------------------------------------
+      # La familia mas comun y barata en Mexico.
+      # Equipos: Concox/Jimi GT06N, GT06E, JM-VL01, JM-VL02, TR06, y los
+      #          incontables clones sin marca que se venden en linea.
+      # Firma del paquete crudo: empieza con 7878 o 7979.
+      - "${PORT_GT06:-5023}:5023"
+
+      # ---- 5013 · h02 --------------------------------------------------------
+      # Equipos: SinoTrack ST-901, ST-903, ST-906, y clones H02.
+      # Firma del paquete: texto que empieza con *HQ, y termina en #
+      - "${PORT_H02:-5013}:5013"
+
+      # ---- 5001 · gps103 -----------------------------------------------------
+      # Equipos: Coban TK103, TK103-2, GPS103-A/B, y sus clones.
+      # Firma del paquete: texto que empieza con imei: y termina en ;
+      # OJO: es tambien el puerto que la documentacion oficial de Traccar
+      # recomienda para identificar un equipo desconocido, porque su log
+      # muestra el contenido crudo. Ver docs/02-conectar-mis-gps.md.
+      - "${PORT_GPS103:-5001}:5001"
+
+      # ---- 5027 · teltonika --------------------------------------------------
+      # Gama industrial lituana, mucho mas cara y mucho mas confiable.
+      # Equipos: FMB920, FMB003, FMB130, FMC130, FMB640.
+      # Firma: binario, empieza con 4 bytes en cero (00000000).
+      - "${PORT_TELTONIKA:-5027}:5027"
+
+      # ---- Candidatos adicionales (descomentar solo si los necesitas) --------
+      # - "5020:5020"   # meitrack  · MVT340, MVT380, T333, T366
+      # - "5015:5015"   # huabao/JT808 · estandar chino; paquetes 7e ... 7e
+      # - "5093:5093"   # watch    · relojes rastreadores infantiles/GPS
+    volumes:
+      # Configuracion no secreta, versionada en el repositorio.
+      - ./traccar.xml:/opt/traccar/conf/traccar.xml:ro
+      - traccar-logs:/opt/traccar/logs
+      - traccar-media:/opt/traccar/media
+    healthcheck:
+      # /api/server responde sin autenticacion; sirve para saber si el servidor
+      # ya termino de aplicar las migraciones de esquema (tarda ~30-60 s la
+      # primera vez, porque Liquibase crea todas las tablas tc_*).
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:8082/api/server || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 90s
+    logging:
+      # Sin esto, el log de Traccar en modo debug puede llenar el disco.
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
+
+volumes:
+  # Volumenes con nombre, administrados por Docker. No son carpetas de Windows,
+  # asi que no sufren la penalizacion de rendimiento del sistema de archivos
+  # compartido y no se pueden borrar por accidente al limpiar el escritorio.
+  #
+  #   Ver:      docker volume ls
+  #   Respaldo: scripts/backup.ps1  (usa pg_dump, no copia el volumen crudo)
+  #   BORRAR TODO: docker compose down -v   <- destruye el historial. Cuidado.
+  postgres-data:
+  traccar-logs:
+  traccar-media:
