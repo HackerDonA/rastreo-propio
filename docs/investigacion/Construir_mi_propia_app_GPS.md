@@ -267,7 +267,9 @@ En Traccar también puedes activar el log detallado para ver los bytes crudos qu
    RESET#
 
    # SinoTrack ST-901 (protocolo H02) — usa IP, no dominio
-   8040000 189.203.10.55 5013
+   # 203.0.113.10 es una IP de ejemplo (rango reservado para documentación).
+   # Sustitúyela por la IP pública de TU servidor.
+   8040000 203.0.113.10 5013
    ```
 
    Regla general: **primero el APN, después el servidor, al final un reinicio.**
