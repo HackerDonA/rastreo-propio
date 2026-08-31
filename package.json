@@ -17,12 +17,14 @@
     "infra:ps": "docker compose --env-file .env -f infra/docker-compose.yml ps",
     "dev": "pnpm --parallel --filter \"./apps/*\" dev",
     "build": "pnpm --recursive --filter \"./apps/*\" build",
-    "typecheck": "pnpm --recursive --filter \"./apps/*\" typecheck",
+    "typecheck": "pnpm --recursive --filter \"./apps/*\" typecheck && pnpm typecheck:scripts",
+    "typecheck:scripts": "tsc -p scripts/tsconfig.json",
     "lint": "pnpm --recursive --filter \"./apps/*\" lint",
     "test": "pnpm --recursive --filter \"./apps/*\" test",
     "simulate": "tsx scripts/simulate-fleet.ts"
   },
   "devDependencies": {
+    "@types/node": "^24.13.3",
     "tsx": "^4.20.6",
     "typescript": "^5.9.3"
   }

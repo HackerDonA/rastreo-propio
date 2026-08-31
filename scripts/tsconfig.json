@@ -1,0 +1,14 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "types": ["node"],
+    "lib": ["ES2023"],
+    "module": "NodeNext",
+    "moduleResolution": "nodenext",
+    // Los scripts se ejecutan con tsx, que lee los .ts directamente. No hay
+    // paso de compilacion, asi que aqui basta con permitir la extension.
+    "allowImportingTsExtensions": true
+  },
+  "include": ["**/*.ts"]
+}
