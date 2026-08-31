@@ -1,3 +1,9 @@
 packages:
   - "apps/*"
   - "packages/*"
+# pnpm bloquea por omision los scripts de instalacion de las dependencias.
+# esbuild necesita el suyo para colocar su binario nativo; sin el, ni tsx ni
+# Vite arrancan. Es una dependencia de primera linea de ambos, no un paquete
+# desconocido, asi que se autoriza explicitamente.
+allowBuilds:
+  esbuild: true
