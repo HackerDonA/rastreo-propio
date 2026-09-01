@@ -34,6 +34,8 @@ async function pedir<T>(ruta: string, opciones: OpcionesPeticion = {}): Promise<
   let respuesta: Response;
   try {
     respuesta = await fetch(`${API_URL}${ruta}`, {
+      // La cookie de sesion viaja entre origenes distintos; sin esto no se manda.
+      credentials: 'include',
       method: metodo,
       ...(signal === undefined ? {} : { signal }),
       ...(cuerpo === undefined

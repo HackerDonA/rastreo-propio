@@ -133,6 +133,11 @@ pnpm simulate --units 10 --city cdmx
 
 Abre <http://localhost:5173> y verás la flota moviéndose.
 
+> En local la API escucha solo en `127.0.0.1` y no pide contraseña, para no
+> estorbar mientras desarrollas. **Antes de exponerla** ejecuta
+> `pnpm hash-password` y pega los dos valores en tu `.env`; si `API_HOST` deja
+> de ser local sin contraseña configurada, el servidor no arranca.
+
 ---
 
 ## Funcionalidades
@@ -180,6 +185,16 @@ Abre <http://localhost:5173> y verás la flota moviéndose.
 - [x] Exportación del recorrido en CSV, GPX y GeoJSON
 - [x] Capas de mapa: calles, oscuro, minimalista y satélite
 - [x] Compartir la ubicación de una unidad por enlace temporal
+
+**Seguridad**
+- [x] Acceso con contraseña, guardada como hash scrypt con sal
+- [x] Sesión en cookie `httpOnly` + `SameSite=strict` y firmada
+- [x] Todo protegido por omisión: solo una lista corta y explícita de rutas públicas
+- [x] El WebSocket exige sesión: sin ella no se ve la flota en vivo
+- [x] Límite de 5 intentos de acceso por minuto
+- [x] Cabeceras de seguridad (Helmet) y CORS con origen declarado
+- [x] El servidor **se niega a arrancar** si queda expuesto sin contraseña
+- [x] El token de Traccar nunca llega al navegador
 - [x] Predicción de mantenimiento por ritmo real de uso
 
 **Operación**
@@ -303,6 +318,35 @@ métodos, así que el navegador bloqueaba `DELETE`, `PUT` y `PATCH` **antes de
 enviarlos**. El servidor nunca veía la petición y no registraba ningún error.
 Toda mi verificación había sido con curl, que va directo al método y jamás
 dispara el preflight: la clase de fallo que solo aparece en el navegador.
+
+**Una API sin autenticación no es "todavía no", es una cuenta regresiva.** El
+BFF nació escuchando en `127.0.0.1` y eso lo hacía inofensivo — hasta que la
+guía de producción explicó cómo ponerlo detrás de HTTPS. En ese momento, y sin
+cambiar una línea de código, trece rutas que modifican datos quedaban abiertas
+a internet, incluida una que **apaga el motor de un vehículo en marcha**. La
+lección no fue "hay que poner login": fue que el riesgo lo introdujo un
+documento, no un commit, y que la revisión de seguridad tiene que mirar también
+cómo se va a desplegar el código, no solo qué hace.
+
+Por eso el arreglo incluye una salvaguarda que no depende de que nadie se
+acuerde: si `API_HOST` no es local y no hay contraseña, el servidor **se niega
+a arrancar** y dice por qué. Un aviso en el log se pierde; un proceso que no
+levanta, no.
+
+**Proteger por omisión y hacer excepciones a mano.** El guardia de sesión es un
+hook `onRequest` que exige cookie salvo para una lista corta y explícita
+(`/health`, `/api/auth/*`, `/api/share/*`). La alternativa —marcar como
+protegida cada ruta— funciona hasta la primera que se olvida, y con el tiempo
+siempre se olvida alguna. Un agujero por omisión es silencioso; una excepción
+que falta se nota de inmediato porque la ruta responde 401.
+
+**El límite por omisión de una función criptográfica puede ser el bug.** scrypt
+necesita `128 · N · r` bytes, que con los parámetros elegidos son 64 MB — y el
+tope por omisión de Node es 32 MB. Sin declarar `maxmem` la llamada revienta
+con "memory limit exceeded"... exactamente al iniciar sesión, el peor momento
+para descubrirlo. Lo encontró una prueba, no el compilador: los tipos estaban
+perfectos. También hubo que envolver `scrypt` a mano en vez de usar
+`promisify`, que se queda con la sobrecarga que *no* acepta opciones.
 
 **Ejecutar un script no es lo mismo que leerlo.** El respaldo en PowerShell
 parecía correcto y fallaba siempre: canalizar la salida de `pg_dump` hace que

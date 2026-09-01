@@ -5,10 +5,15 @@
  * Ver docs/adr/0002-bff-propio.md.
  */
 
+import cookie from '@fastify/cookie';
 import cors from '@fastify/cors';
+import helmet from '@fastify/helmet';
+import rateLimit from '@fastify/rate-limit';
 import websocket from '@fastify/websocket';
 import Fastify, { type FastifyError } from 'fastify';
 import { ZodError } from 'zod';
+
+import { randomBytes } from 'node:crypto';
 
 import { config } from './config.ts';
 import { closePool, pool } from './db.ts';
@@ -21,6 +26,7 @@ import { registerHistoryRoutes } from './modules/history/routes.ts';
 import { registerShareRoutes } from './modules/share/routes.ts';
 import { registerMaintenanceRoutes } from './modules/maintenance/routes.ts';
 import { registerVehicleRoutes } from './modules/vehicles/routes.ts';
+import { registerAuthRoutes } from './routes/auth.ts';
 import { registerFleetRoutes } from './routes/fleet.ts';
 import { registerUnitRoutes } from './routes/units.ts';
 import { TraccarClient, TraccarError } from './traccar/client.ts';
@@ -86,6 +92,64 @@ app.setErrorHandler<FastifyError>((error, request, reply) => {
 // ----------------------------------------------------------------------------
 
 async function main(): Promise<void> {
+  const protegido = (config.AUTH_PASSWORD_HASH ?? '') !== '';
+  const soloLocal = config.API_HOST === '127.0.0.1' || config.API_HOST === 'localhost';
+
+  /*
+   * SALVAGUARDA DE ARRANQUE
+   *
+   * Sin contraseña, la API deja que cualquiera que la alcance apague el motor
+   * de un vehículo. En 127.0.0.1 eso solo es esta máquina, y para desarrollar
+   * es aceptable. Escuchando en cualquier otra interfaz, no lo es.
+   *
+   * El servidor se niega a arrancar en ese caso en vez de avisar y continuar:
+   * un aviso en el log se pierde entre cien líneas, y el momento de descubrir
+   * que la flota está expuesta no puede ser cuando ya lo está.
+   */
+  if (!protegido && !soloLocal) {
+    app.log.error(
+      [
+        `API_HOST=${config.API_HOST} expone la API fuera de esta maquina, y no`,
+        'hay contrasena configurada. Cualquiera podria apagar el motor de un',
+        'vehiculo, borrar geocercas o generar enlaces de ubicacion.',
+        '',
+        'Genera una contrasena y ponla en tu .env:',
+        '',
+        '    pnpm hash-password',
+        '',
+        'El servidor no va a arrancar asi.',
+      ].join('\n'),
+    );
+    process.exit(1);
+  }
+
+  if (!protegido) {
+    app.log.warn(
+      'La API no tiene contrasena. Solo escucha en 127.0.0.1, pero configura ' +
+        'AUTH_PASSWORD_HASH antes de exponerla (pnpm hash-password).',
+    );
+  }
+
+  // Cabeceras de seguridad. contentSecurityPolicy va apagado porque esto es
+  // una API JSON: no sirve HTML, y una CSP aqui no protege de nada mientras
+  // que si puede estorbar a las respuestas de error del navegador.
+  await app.register(helmet, { contentSecurityPolicy: false });
+
+  await app.register(rateLimit, {
+    // Generoso a proposito: el frontend consulta seguido y no queremos
+    // estrangular el uso normal. Lo estricto va en /api/auth/login.
+    max: 300,
+    timeWindow: '1 minute',
+  });
+
+  await app.register(cookie, {
+    // Sin secreto configurado se genera uno al vuelo. Consecuencia: las
+    // sesiones no sobreviven un reinicio del servidor. Es lo correcto por
+    // omision, porque la alternativa seria un secreto fijo en el codigo, que
+    // es el mismo para todas las instalaciones del mundo.
+    secret: config.AUTH_COOKIE_SECRET ?? randomBytes(32).toString('hex'),
+  });
+
   await app.register(cors, {
     origin: config.CORS_ORIGIN.split(',').map((o) => o.trim()),
     credentials: true,
@@ -125,6 +189,7 @@ async function main(): Promise<void> {
     };
   });
 
+  registerAuthRoutes(app);
   registerUnitRoutes(app, client, relay);
   registerFleetRoutes(app, client);
   registerMaintenanceRoutes(app, client);
@@ -134,7 +199,14 @@ async function main(): Promise<void> {
   registerHistoryRoutes(app, client);
   registerShareRoutes(app, client);
 
-  /** WebSocket propio hacia el navegador. */
+  /**
+   * WebSocket propio hacia el navegador.
+   *
+   * El hook onRequest de la autenticacion tambien cubre esta ruta: el
+   * handshake del WebSocket es una peticion HTTP normal, asi que una conexion
+   * sin sesion se rechaza con 401 antes de llegar aqui. Sin eso, cualquiera
+   * podria abrir el socket y ver las posiciones de toda la flota en vivo.
+   */
   app.get('/ws', { websocket: true }, (socket) => {
     const wrapper = {
       send: (data: string): void => {

@@ -107,7 +107,8 @@ export const ETIQUETA_DIMENSION: Readonly<Record<Dimension, string>> = {
 // ----------------------------------------------------------------------------
 
 async function pedir<T>(ruta: string, init?: RequestInit): Promise<T> {
-  const respuesta = await fetch(`${API_URL}${ruta}`, init);
+  // La cookie de sesion es de otro origen: sin `credentials` no se manda.
+  const respuesta = await fetch(`${API_URL}${ruta}`, { ...init, credentials: 'include' });
   if (!respuesta.ok) {
     let detalle = `La API respondió ${String(respuesta.status)}`;
     try {

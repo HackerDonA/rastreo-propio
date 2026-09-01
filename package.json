@@ -22,7 +22,8 @@
     "lint": "eslint .",
     "test": "pnpm --recursive --filter \"./apps/*\" test",
     "simulate": "tsx scripts/simulate-fleet.ts",
-    "lint:fix": "eslint . --fix"
+    "lint:fix": "eslint . --fix",
+    "hash-password": "tsx scripts/hash-password.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

@@ -188,7 +188,10 @@ export const ETIQUETA_DOCUMENTO: Readonly<Record<string, string>> = {
 // ============================================================================
 
 async function pedir<T>(ruta: string, init?: RequestInit): Promise<T> {
-  const respuesta = await fetch(`${API_URL}${ruta}`, init);
+  // `credentials: include` es imprescindible: la cookie de sesion es de otro
+  // origen (la API en :4000, el frontend en :5173) y sin esto el navegador
+  // simplemente no la manda, aunque exista.
+  const respuesta = await fetch(`${API_URL}${ruta}`, { ...init, credentials: 'include' });
   if (!respuesta.ok) {
     let detalle = `La API respondió ${String(respuesta.status)}`;
     try {
@@ -374,4 +377,24 @@ export async function revocarEnlace(token: string): Promise<void> {
 /** URL completa que se le manda a la persona. */
 export function urlCompartida(token: string): string {
   return `${window.location.origin}/c/${token}`;
+}
+
+// --- Sesion -----------------------------------------------------------------
+
+export interface EstadoSesion {
+  /** `false` cuando la API no tiene contrasena configurada. */
+  readonly protegido: boolean;
+  readonly autenticado: boolean;
+}
+
+export async function estadoSesion(): Promise<EstadoSesion> {
+  return pedir<EstadoSesion>('/api/auth/estado');
+}
+
+export async function iniciarSesion(password: string): Promise<void> {
+  await pedir('/api/auth/login', json('POST', { password }));
+}
+
+export async function cerrarSesion(): Promise<void> {
+  await pedir('/api/auth/logout', json('POST', {}));
 }

@@ -52,6 +52,22 @@ const schema = z.object({
    * 1 es útil para probar el job sin esperar una hora.
    */
   MAINTENANCE_JOB_INTERVAL_MINUTES: z.coerce.number().int().min(1).max(1440).default(60),
+
+  /**
+   * Hash scrypt de la contraseña de acceso. Se genera con:
+   *     pnpm hash-password
+   *
+   * Si queda vacío, la API NO pide contraseña. Eso solo se tolera escuchando
+   * en 127.0.0.1; ver la comprobación de arranque en server.ts.
+   */
+  AUTH_PASSWORD_HASH: z.string().optional(),
+
+  /**
+   * Secreto con el que se firman las cookies de sesión. Si cambia, todas las
+   * sesiones abiertas dejan de valer, que es justo lo que se quiere al
+   * sospechar que se filtró.
+   */
+  AUTH_COOKIE_SECRET: z.string().min(32).optional(),
 });
 
 const parsed = schema.safeParse(process.env);

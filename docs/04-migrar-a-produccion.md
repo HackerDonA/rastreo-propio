@@ -154,6 +154,38 @@ antes de arrancar Caddy (necesita el 80 para validar el certificado).
 
 ## Paso 5 · Endurecer
 
+### La contraseña de la API no es opcional aquí
+
+En desarrollo la API escucha en `127.0.0.1` y solo la alcanza tu propia
+máquina. En cuanto la pones detrás de Caddy, la alcanza internet entero — y
+entre sus rutas hay una que **apaga el motor de un vehículo**.
+
+Genera la contraseña y los dos valores que van al `.env`:
+
+```powershell
+pnpm hash-password
+```
+
+Escribe `AUTH_PASSWORD_HASH` y `AUTH_COOKIE_SECRET` en el `.env` del servidor.
+La contraseña en claro no se guarda en ninguna parte: del lado del servidor
+solo vive el hash scrypt, así que si la olvidas hay que generar otra.
+
+`AUTH_COOKIE_SECRET` firma la cookie de sesión. Si lo dejas vacío se genera uno
+nuevo en cada arranque, lo que significa que **todas las sesiones se cierran
+cada vez que reinicias el servidor**. En desarrollo da igual; en producción es
+una molestia diaria.
+
+No hace falta que recuerdes activar esto: si `API_HOST` no es `127.0.0.1` y no
+hay contraseña configurada, **el servidor se niega a arrancar** y explica por
+qué. Es deliberado que sea un fallo duro y no un aviso en el log: un aviso se
+pierde entre cien líneas, y el momento de enterarse de que la flota está
+expuesta no puede ser cuando ya lo está.
+
+Para dar acceso a un tercero — un cliente que quiere ver dónde va su envío —
+**no compartas la contraseña**: genera un enlace de ubicación desde la ficha de
+la unidad. Caduca solo, se puede revocar, y expone únicamente nombre y posición
+(nunca IMEI, placa ni conductor).
+
 ### Un rol de base de datos de solo lectura sobre `public`
 
 Hoy el BFF y Traccar usan el mismo usuario de PostgreSQL. La regla "las tablas
@@ -243,6 +275,8 @@ resumen:
 **Al desplegar**
 
 - [ ] `.env` con contraseñas nuevas, distintas a las de desarrollo
+- [ ] `AUTH_PASSWORD_HASH` y `AUTH_COOKIE_SECRET` puestos (`pnpm hash-password`)
+- [ ] Comprobado que la API responde **401** sin sesión
 - [ ] `pnpm infra:up` y ambos contenedores *healthy*
 - [ ] Admin de Traccar creado con contraseña propia
 - [ ] Token de API nuevo generado
