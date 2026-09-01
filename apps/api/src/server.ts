@@ -14,6 +14,7 @@ import { config } from './config.ts';
 import { closePool, pool } from './db.ts';
 import { migrar } from './migrate.ts';
 import { MaintenanceJob } from './modules/maintenance/job.ts';
+import { registerCommandRoutes } from './modules/commands/routes.ts';
 import { asegurarNotificacionWeb } from './modules/events/bootstrap.ts';
 import { registerGeofenceRoutes } from './modules/geofences/routes.ts';
 import { registerMaintenanceRoutes } from './modules/maintenance/routes.ts';
@@ -127,6 +128,7 @@ async function main(): Promise<void> {
   registerMaintenanceRoutes(app, client);
   registerGeofenceRoutes(app, client);
   registerVehicleRoutes(app);
+  registerCommandRoutes(app, client);
 
   /** WebSocket propio hacia el navegador. */
   app.get('/ws', { websocket: true }, (socket) => {

@@ -306,6 +306,40 @@ export class TraccarClient {
       .filter((id): id is number => id !== undefined);
   }
 
+  // --- Comandos remotos -----------------------------------------------------
+
+  /**
+   * Tipos de comando que soporta una unidad.
+   *
+   * Traccar filtra por el protocolo real del equipo, asi que la lista depende
+   * del rastreador. Solo funciona si la unidad ya reporto alguna posicion:
+   * hasta entonces Traccar no sabe que protocolo habla.
+   */
+  public async getCommandTypes(
+    deviceId: number,
+    textChannel: boolean,
+  ): Promise<readonly { type: string }[]> {
+    return this.request(
+      `/commands/types?deviceId=${String(deviceId)}&textChannel=${String(textChannel)}`,
+      z.array(z.object({ type: z.string() })),
+    );
+  }
+
+  /**
+   * Despacha un comando.
+   *
+   * Traccar responde 200 con el comando encolado. Que llegue al equipo depende
+   * de que este en linea: aceptar no es lo mismo que entregar.
+   */
+  public async sendCommand(comando: {
+    deviceId: number;
+    type: string;
+    attributes: Record<string, string | number | boolean>;
+    textChannel: boolean;
+  }): Promise<void> {
+    await this.requestNoContent('/commands/send', 'POST', comando);
+  }
+
   // --- Notificaciones -------------------------------------------------------
   //
   // Traccar solo empuja eventos por el WebSocket si existe una Notification
