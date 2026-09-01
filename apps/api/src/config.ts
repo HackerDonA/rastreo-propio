@@ -46,6 +46,12 @@ const schema = z.object({
    * a 1 Hz, 750 ms convierte ~10 mensajes por segundo en ~1.3.
    */
   WS_FLUSH_INTERVAL_MS: z.coerce.number().int().min(100).max(10_000).default(750),
+
+  /**
+   * Cada cuántos minutos corre el job que evalúa los mantenimientos. Bajarlo a
+   * 1 es útil para probar el job sin esperar una hora.
+   */
+  MAINTENANCE_JOB_INTERVAL_MINUTES: z.coerce.number().int().min(1).max(1440).default(60),
 });
 
 const parsed = schema.safeParse(process.env);

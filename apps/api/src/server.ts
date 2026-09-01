@@ -12,6 +12,9 @@ import { ZodError } from 'zod';
 
 import { config } from './config.ts';
 import { closePool, pool } from './db.ts';
+import { migrar } from './migrate.ts';
+import { MaintenanceJob } from './modules/maintenance/job.ts';
+import { registerMaintenanceRoutes } from './modules/maintenance/routes.ts';
 import { registerFleetRoutes } from './routes/fleet.ts';
 import { registerUnitRoutes } from './routes/units.ts';
 import { TraccarClient, TraccarError } from './traccar/client.ts';
@@ -36,6 +39,7 @@ const app = Fastify({
 
 const client = new TraccarClient(app.log);
 const relay = new TraccarRelay(client, app.log);
+const maintenanceJob = new MaintenanceJob(client, app.log);
 
 // ----------------------------------------------------------------------------
 //  Manejo de errores centralizado
@@ -108,6 +112,7 @@ async function main(): Promise<void> {
 
   registerUnitRoutes(app, client, relay);
   registerFleetRoutes(app, client);
+  registerMaintenanceRoutes(app, client);
 
   /** WebSocket propio hacia el navegador. */
   app.get('/ws', { websocket: true }, (socket) => {
@@ -125,6 +130,11 @@ async function main(): Promise<void> {
     });
   });
 
+  // Las migraciones del esquema `app` corren ANTES de aceptar trafico. Si
+  // fallan, el servidor no arranca: es preferible a servir peticiones contra un
+  // esquema a medias.
+  await migrar(app.log);
+
   // El catalogo inicial de unidades se carga antes de aceptar trafico, para que
   // el primer mensaje del WebSocket ya pueda construir unidades completas.
   try {
@@ -135,6 +145,7 @@ async function main(): Promise<void> {
   }
 
   await relay.start();
+  maintenanceJob.start();
 
   await app.listen({ port: config.API_PORT, host: config.API_HOST });
   app.log.info(`API lista en http://${config.API_HOST}:${config.API_PORT}`);
@@ -148,6 +159,7 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.on(signal, () => {
     app.log.info('Cerrando...');
     relay.stop();
+    maintenanceJob.stop();
     void app
       .close()
       .then(closePool)
