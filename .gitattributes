@@ -30,3 +30,8 @@
 # Archivos generados: no cuentan en las estadisticas de lenguaje de GitHub
 # y se colapsan en los diffs de los pull requests.
 pnpm-lock.yaml linguist-generated=true -diff
+
+# Los .ps1 se guardan con BOM de UTF-8 a proposito. Windows PowerShell 5.1
+# (el que trae Windows por omision) lee los scripts como ANSI si no lo llevan,
+# y entonces los acentos salen como "ATENCIoN". Git conserva el BOM porque es
+# contenido del archivo, no codificacion de linea.
