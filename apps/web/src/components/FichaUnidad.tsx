@@ -12,6 +12,7 @@ interface Props {
   readonly ficha: Ficha | null;
   readonly onCerrar: () => void;
   readonly onEditarFicha: () => void;
+  readonly onComandos: () => void;
 }
 
 interface DatoProps {
@@ -28,7 +29,13 @@ function Dato({ etiqueta, valor }: DatoProps): JSX.Element {
   );
 }
 
-export function FichaUnidad({ unidad, ficha, onCerrar, onEditarFicha }: Props): JSX.Element {
+export function FichaUnidad({
+  unidad,
+  ficha,
+  onCerrar,
+  onEditarFicha,
+  onComandos,
+}: Props): JSX.Element {
   const p = unidad.position;
 
   return (
@@ -106,6 +113,20 @@ export function FichaUnidad({ unidad, ficha, onCerrar, onEditarFicha }: Props): 
               <span>Último reporte</span>
               <span>{new Date(p.fixTime).toLocaleString('es-MX')}</span>
             </div>
+          </div>
+
+          {/* ---------- Comandos remotos ---------- */}
+          <div className="borde mt-3 border-t pt-3">
+            <button
+              type="button"
+              onClick={onComandos}
+              className="borde flex w-full items-center justify-center gap-1.5 rounded-lg border px-2 py-2 text-xs font-medium transition hover:bg-black/5 dark:hover:bg-white/5"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-3.5 w-3.5" aria-hidden="true">
+                <path d="M12 2v6M12 16v6M4.9 4.9l4.2 4.2M14.9 14.9l4.2 4.2M2 12h6M16 12h6" strokeLinecap="round" />
+              </svg>
+              Comandos remotos
+            </button>
           </div>
 
           {/* ---------- Ficha administrativa ---------- */}

@@ -60,6 +60,28 @@ export interface Ficha {
   readonly notes: string | null;
 }
 
+export type Riesgo = 'seguro' | 'cuidado' | 'peligroso';
+
+export interface ComandoDisponible {
+  readonly type: string;
+  readonly etiqueta: string;
+  readonly descripcion: string;
+  readonly riesgo: Riesgo;
+  readonly advertencia?: string;
+}
+
+export interface ComandosUnidad {
+  readonly unitId: number;
+  /** Por la conexión de datos: gratis, pero el equipo debe estar en línea. */
+  readonly viaDatos: readonly ComandoDisponible[];
+  /** Por SMS: funciona sin datos, pero cuesta un mensaje. */
+  readonly viaSms: readonly ComandoDisponible[];
+  readonly velocidadKmh: number | null;
+  readonly enMovimiento: boolean;
+  /** El protocolo del equipo no define comandos (caso OsmAnd). */
+  readonly soloCustom: boolean;
+}
+
 export interface DocumentoPorVencer {
   readonly deviceId: number;
   readonly plate: string | null;
@@ -182,4 +204,22 @@ export async function obtenerPorVencer(dias = 60): Promise<readonly DocumentoPor
     `/api/vehicles/expiring?days=${String(dias)}`,
   );
   return d.expiring;
+}
+
+// --- Comandos remotos -------------------------------------------------------
+
+export async function obtenerComandos(deviceId: number): Promise<ComandosUnidad> {
+  return pedir<ComandosUnidad>(`/api/units/${String(deviceId)}/commands`);
+}
+
+export async function enviarComando(
+  deviceId: number,
+  datos: {
+    readonly type: string;
+    readonly attributes: Record<string, string | number>;
+    readonly textChannel: boolean;
+    readonly confirmarEnMovimiento: boolean;
+  },
+): Promise<{ enviado: boolean; nota: string }> {
+  return pedir(`/api/units/${String(deviceId)}/commands`, json('POST', datos));
 }

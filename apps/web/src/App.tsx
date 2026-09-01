@@ -6,6 +6,7 @@ import { obtenerFichas, obtenerGeocercas, type Ficha, type Geocerca } from './li
 import { BarraFlota } from './components/BarraFlota.tsx';
 import { CentroAvisos } from './components/CentroAvisos.tsx';
 import { FichaVehiculo } from './components/FichaVehiculo.tsx';
+import { PanelComandos } from './components/PanelComandos.tsx';
 import { PanelGeocercas, type ModoDibujo } from './components/PanelGeocercas.tsx';
 import { FichaUnidad } from './components/FichaUnidad.tsx';
 import { MapaEnVivo } from './components/MapaEnVivo.tsx';
@@ -42,6 +43,7 @@ export function App(): JSX.Element {
   const [geocercas, setGeocercas] = useState<readonly Geocerca[]>([]);
   const [fichas, setFichas] = useState<ReadonlyMap<number, Ficha>>(new Map());
   const [editandoFicha, setEditandoFicha] = useState<number | null>(null);
+  const [comandosDe, setComandosDe] = useState<number | null>(null);
   const [modoDibujo, setModoDibujo] = useState<ModoDibujo>(null);
   const [puntosDibujo, setPuntosDibujo] = useState<readonly (readonly [number, number])[]>([]);
   const [encuadre, setEncuadre] = useState<readonly (readonly [number, number])[] | null>(
@@ -159,6 +161,8 @@ export function App(): JSX.Element {
     seleccionada === null ? null : (fichas.get(seleccionada) ?? null);
   const unidadEditando =
     editandoFicha === null ? null : (unidades.find((u) => u.id === editandoFicha) ?? null);
+  const unidadComandos =
+    comandosDe === null ? null : (unidades.find((u) => u.id === comandosDe) ?? null);
 
   // Vista previa del circulo mientras se dibuja: se calcula igual que en el
   // backend para que lo que se ve sea lo que se guarda.
@@ -404,6 +408,9 @@ export function App(): JSX.Element {
               onEditarFicha={() => {
                 setEditandoFicha(unidadSeleccionada.id);
               }}
+              onComandos={() => {
+                setComandosDe(unidadSeleccionada.id);
+              }}
             />
           )}
 
@@ -423,6 +430,15 @@ export function App(): JSX.Element {
           )}
         </main>
       </div>
+      )}
+
+      {unidadComandos !== null && (
+        <PanelComandos
+          unidad={unidadComandos}
+          onCerrar={() => {
+            setComandosDe(null);
+          }}
+        />
       )}
 
       {unidadEditando !== null && (
