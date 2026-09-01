@@ -13,6 +13,7 @@ import { BarraFlota } from './components/BarraFlota.tsx';
 import { CentroAvisos } from './components/CentroAvisos.tsx';
 import { FichaVehiculo } from './components/FichaVehiculo.tsx';
 import { PanelComandos } from './components/PanelComandos.tsx';
+import { PanelCompartir } from './components/PanelCompartir.tsx';
 import { PanelGeocercas, type ModoDibujo } from './components/PanelGeocercas.tsx';
 import { PanelHistorial } from './components/PanelHistorial.tsx';
 import { FichaUnidad } from './components/FichaUnidad.tsx';
@@ -51,6 +52,7 @@ export function App(): JSX.Element {
   const [fichas, setFichas] = useState<ReadonlyMap<number, Ficha>>(new Map());
   const [editandoFicha, setEditandoFicha] = useState<number | null>(null);
   const [comandosDe, setComandosDe] = useState<number | null>(null);
+  const [compartirDe, setCompartirDe] = useState<number | null>(null);
   const [modoDibujo, setModoDibujo] = useState<ModoDibujo>(null);
   const [puntosDibujo, setPuntosDibujo] = useState<readonly (readonly [number, number])[]>([]);
   const [encuadre, setEncuadre] = useState<readonly (readonly [number, number])[] | null>(
@@ -183,6 +185,8 @@ export function App(): JSX.Element {
     editandoFicha === null ? null : (unidades.find((u) => u.id === editandoFicha) ?? null);
   const unidadComandos =
     comandosDe === null ? null : (unidades.find((u) => u.id === comandosDe) ?? null);
+  const unidadCompartir =
+    compartirDe === null ? null : (unidades.find((u) => u.id === compartirDe) ?? null);
 
   // Vista previa del circulo mientras se dibuja: se calcula igual que en el
   // backend para que lo que se ve sea lo que se guarda.
@@ -488,6 +492,9 @@ export function App(): JSX.Element {
               onComandos={() => {
                 setComandosDe(unidadSeleccionada.id);
               }}
+              onCompartir={() => {
+                setCompartirDe(unidadSeleccionada.id);
+              }}
             />
           )}
 
@@ -507,6 +514,15 @@ export function App(): JSX.Element {
           )}
         </main>
       </div>
+      )}
+
+      {unidadCompartir !== null && (
+        <PanelCompartir
+          unidad={unidadCompartir}
+          onCerrar={() => {
+            setCompartirDe(null);
+          }}
+        />
       )}
 
       {unidadComandos !== null && (

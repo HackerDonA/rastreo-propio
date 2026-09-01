@@ -383,6 +383,22 @@ function FilaRegla({
 
       <div className="texto-suave flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs">
         <span className="font-medium">{regla.mensaje}</span>
+        {/* La prediccion por ritmo de uso es lo que convierte un contador en
+            una herramienta para agendar: dos unidades a las que les faltan los
+            mismos kilometros pueden estar a una semana o a dos meses. */}
+        {regla.diasEstimados !== null && (
+          <span
+            className={
+              regla.diasEstimados < 0
+                ? 'font-semibold text-red-600 dark:text-red-400'
+                : 'font-semibold text-indigo-600 dark:text-indigo-400'
+            }
+          >
+            {regla.diasEstimados < 0
+              ? `· hace ~${String(-regla.diasEstimados)} días a su ritmo`
+              : `· ~${String(regla.diasEstimados)} días a su ritmo`}
+          </span>
+        )}
         {regla.dimension !== null && <span>· por {ETIQUETA_DIMENSION[regla.dimension]}</span>}
         {regla.dimensiones.length > 1 && (
           <span>· lo que ocurra primero de {regla.dimensiones.length}</span>

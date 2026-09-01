@@ -13,6 +13,7 @@ interface Props {
   readonly onCerrar: () => void;
   readonly onEditarFicha: () => void;
   readonly onComandos: () => void;
+  readonly onCompartir: () => void;
 }
 
 interface DatoProps {
@@ -35,6 +36,7 @@ export function FichaUnidad({
   onCerrar,
   onEditarFicha,
   onComandos,
+  onCompartir,
 }: Props): JSX.Element {
   const p = unidad.position;
 
@@ -115,17 +117,30 @@ export function FichaUnidad({
             </div>
           </div>
 
-          {/* ---------- Comandos remotos ---------- */}
-          <div className="borde mt-3 border-t pt-3">
+          {/* ---------- Acciones ---------- */}
+          <div className="borde mt-3 grid grid-cols-2 gap-1.5 border-t pt-3">
+            <button
+              type="button"
+              onClick={onCompartir}
+              className="borde flex items-center justify-center gap-1.5 rounded-lg border px-2 py-2 text-xs font-medium transition hover:bg-black/5 dark:hover:bg-white/5"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-3.5 w-3.5" aria-hidden="true">
+                <circle cx="18" cy="5" r="3" />
+                <circle cx="6" cy="12" r="3" />
+                <circle cx="18" cy="19" r="3" />
+                <path d="m8.6 13.5 6.8 4M15.4 6.5l-6.8 4" strokeLinecap="round" />
+              </svg>
+              Compartir
+            </button>
             <button
               type="button"
               onClick={onComandos}
-              className="borde flex w-full items-center justify-center gap-1.5 rounded-lg border px-2 py-2 text-xs font-medium transition hover:bg-black/5 dark:hover:bg-white/5"
+              className="borde flex items-center justify-center gap-1.5 rounded-lg border px-2 py-2 text-xs font-medium transition hover:bg-black/5 dark:hover:bg-white/5"
             >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-3.5 w-3.5" aria-hidden="true">
                 <path d="M12 2v6M12 16v6M4.9 4.9l4.2 4.2M14.9 14.9l4.2 4.2M2 12h6M16 12h6" strokeLinecap="round" />
               </svg>
-              Comandos remotos
+              Comandos
             </button>
           </div>
 

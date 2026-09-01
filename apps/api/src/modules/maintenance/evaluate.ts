@@ -45,6 +45,17 @@ export interface ReglaEvaluable {
 export interface Lecturas {
   readonly odometerKm: number | null;
   readonly engineHours: number | null;
+  /**
+   * Kilómetros por día que hace esta unidad, promediados sobre las últimas
+   * semanas. `null` si todavía no hay historial suficiente.
+   *
+   * Es lo que permite responder CUÁNDO va a vencer un servicio, no solo cuánto
+   * falta. "Faltan 480 km" no dice nada a quien tiene que agendar el taller;
+   * "faltan 480 km, unos 6 días a su ritmo" sí.
+   */
+  readonly kmPorDia?: number | null;
+  /** Horas de motor por día, mismo criterio. */
+  readonly horasPorDia?: number | null;
 }
 
 /** Estado de una de las tres dimensiones. */
@@ -74,6 +85,14 @@ export interface Evaluacion {
    * un equipo que no informa horas de motor.
    */
   readonly sinDatos: boolean;
+  /**
+   * Días que faltan al ritmo actual de uso. Negativo si ya venció.
+   * `null` cuando no hay ritmo conocido o la dimensión crítica es la fecha
+   * (ahí el dato ya es la fecha misma).
+   */
+  readonly diasEstimados: number | null;
+  /** Fecha estimada del vencimiento, en ISO. */
+  readonly fechaEstimada: string | null;
 }
 
 const MS_POR_DIA = 86_400_000;
@@ -152,6 +171,38 @@ function describir(estado: EstadoDimension): string {
 }
 
 /**
+ * Traduce lo que falta a DÍAS, usando el ritmo real de uso de la unidad.
+ *
+ * Es la diferencia entre un contador y una herramienta de planificación.
+ * "Faltan 480 km" no le sirve a quien tiene que agendar el taller; "faltan 480
+ * km, unos 6 días a su ritmo" sí. Y hace visible algo que un contador esconde:
+ * dos unidades a las que les faltan los mismos kilómetros pueden estar a una
+ * semana o a dos meses de distancia según cuánto trabajen.
+ *
+ * Devuelve `null` cuando no se puede estimar, en vez de inventar un número.
+ */
+function estimarDias(estado: EstadoDimension, lecturas: Lecturas): number | null {
+  switch (estado.dimension) {
+    case 'date':
+      // La dimensión ya está en días; no hay nada que estimar.
+      return estado.restante;
+    case 'km': {
+      const ritmo = lecturas.kmPorDia;
+      // Un ritmo de cero o casi cero daría una división que tiende a infinito:
+      // un vehículo parado nunca llega por kilometraje, y decir "faltan 99999
+      // días" es peor que no decir nada.
+      if (ritmo == null || ritmo < 0.5) return null;
+      return estado.restante / ritmo;
+    }
+    case 'hours': {
+      const ritmo = lecturas.horasPorDia;
+      if (ritmo == null || ritmo < 0.01) return null;
+      return estado.restante / ritmo;
+    }
+  }
+}
+
+/**
  * Evalúa una regla completa aplicando "lo que ocurra primero".
  *
  * @param ahora Se recibe como parámetro en vez de leer el reloj adentro, para
@@ -218,6 +269,8 @@ export function evaluarRegla(
       dimensiones: [],
       mensaje: sinDatos ? 'sin datos suficientes todavía' : 'sin intervalos configurados',
       sinDatos,
+      diasEstimados: null,
+      fechaEstimada: null,
     };
   }
 
@@ -227,6 +280,8 @@ export function evaluarRegla(
   for (const estado of dimensiones) {
     if (estado.avance > critica.avance) critica = estado;
   }
+
+  const diasEstimados = estimarDias(critica, lecturas);
 
   return {
     ruleId: regla.id,
@@ -240,6 +295,11 @@ export function evaluarRegla(
     dimensiones,
     mensaje: describir(critica),
     sinDatos,
+    diasEstimados: diasEstimados === null ? null : Math.round(diasEstimados),
+    fechaEstimada:
+      diasEstimados === null
+        ? null
+        : new Date(ahora.getTime() + diasEstimados * MS_POR_DIA).toISOString(),
   };
 }
 

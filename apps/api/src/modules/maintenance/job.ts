@@ -71,7 +71,10 @@ export class MaintenanceJob {
         return { evaluadas: 0, abiertos: 0, cerrados: 0, vencidos: 0 };
       }
 
-      const { lecturas } = await leerFlota(this.client);
+      const [{ lecturas }, ritmos] = await Promise.all([
+        leerFlota(this.client),
+        repo.calcularRitmos(),
+      ]);
       const ahora = new Date();
 
       let abiertos = 0;
@@ -79,11 +82,16 @@ export class MaintenanceJob {
       let vencidos = 0;
 
       for (const regla of reglas) {
-        const lectura = lecturas.get(regla.deviceId) ?? {
+        const base = lecturas.get(regla.deviceId) ?? {
           odometerKm: null,
           engineHours: null,
         };
-        const evaluacion = evaluarRegla(regla, lectura, ahora);
+        const ritmo = ritmos.get(regla.deviceId);
+        const evaluacion = evaluarRegla(
+          regla,
+          { ...base, kmPorDia: ritmo?.kmPorDia ?? null, horasPorDia: ritmo?.horasPorDia ?? null },
+          ahora,
+        );
 
         const resultado = await repo.sincronizarAviso(evaluacion);
         if (resultado === 'abierto') abiertos += 1;

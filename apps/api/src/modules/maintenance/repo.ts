@@ -59,6 +59,69 @@ const num = (v: string | number | null): number | null => {
 };
 
 // ============================================================================
+//  Ritmo de uso
+// ============================================================================
+
+/** Días de historial que se promedian para calcular el ritmo. */
+const VENTANA_RITMO_DIAS = 14;
+
+export interface Ritmo {
+  readonly kmPorDia: number | null;
+  readonly horasPorDia: number | null;
+}
+
+/**
+ * Kilómetros y horas de motor por día de cada unidad.
+ *
+ * Se promedia sobre las últimas dos semanas y no sobre todo el historial:
+ * una unidad que estuvo parada tres meses en el taller y hoy trabaja a diario
+ * daría un promedio histórico absurdamente bajo, y la estimación de cuándo
+ * vence su próximo servicio saldría con semanas de retraso.
+ *
+ * El cálculo va en SQL porque son dos agregados sobre un rango indexado; traer
+ * dos semanas de posiciones a Node para restarlas sería mover megabytes para
+ * obtener diez números.
+ */
+export async function calcularRitmos(): Promise<Map<number, Ritmo>> {
+  const { rows } = await pool.query<{
+    deviceid: number;
+    km: string | null;
+    horas: string | null;
+    dias: string | null;
+  }>(
+    `SELECT deviceid,
+            (MAX((attributes::json->>'totalDistance')::numeric)
+           - MIN((attributes::json->>'totalDistance')::numeric)) / 1000 AS km,
+            (MAX((attributes::json->>'hours')::numeric)
+           - MIN((attributes::json->>'hours')::numeric)) / 3600000 AS horas,
+            EXTRACT(EPOCH FROM (MAX(fixtime) - MIN(fixtime))) / 86400 AS dias
+       FROM tc_positions
+      WHERE fixtime >= now() - interval '${String(VENTANA_RITMO_DIAS)} days'
+      GROUP BY deviceid`,
+  );
+
+  const ritmos = new Map<number, Ritmo>();
+  for (const fila of rows) {
+    const dias = Number(fila.dias ?? 0);
+    // Con menos de medio día de historial el promedio no significa nada: una
+    // unidad recién dada de alta daría un ritmo enorme o ridículo según el
+    // momento exacto en que se consulte.
+    if (!Number.isFinite(dias) || dias < 0.5) {
+      ritmos.set(fila.deviceid, { kmPorDia: null, horasPorDia: null });
+      continue;
+    }
+
+    const km = num(fila.km);
+    const horas = num(fila.horas);
+    ritmos.set(fila.deviceid, {
+      kmPorDia: km === null || km < 0 ? null : km / dias,
+      horasPorDia: horas === null || horas < 0 ? null : horas / dias,
+    });
+  }
+  return ritmos;
+}
+
+// ============================================================================
 //  Plantillas
 // ============================================================================
 

@@ -149,16 +149,25 @@ export function registerMaintenanceRoutes(app: FastifyInstance, client: TraccarC
       .object({ deviceId: z.coerce.number().int().positive().optional() })
       .parse(request.query);
 
-    const [reglas, { lecturas, nombres }] = await Promise.all([
+    const [reglas, { lecturas, nombres }, ritmos] = await Promise.all([
       repo.listarReglas(query.deviceId),
       leerFlota(client),
+      repo.calcularRitmos(),
     ]);
 
     const ahora = new Date();
     const evaluadas: repo.ReglaConEvaluacion[] = reglas.map((regla) => {
-      const lectura = lecturas.get(regla.deviceId) ?? {
+      const base = lecturas.get(regla.deviceId) ?? {
         odometerKm: null,
         engineHours: null,
+      };
+      // El ritmo de uso convierte "faltan 480 km" en "faltan 480 km, unos 6
+      // días a su ritmo", que es lo que hace falta para agendar el taller.
+      const ritmo = ritmos.get(regla.deviceId);
+      const lectura = {
+        ...base,
+        kmPorDia: ritmo?.kmPorDia ?? null,
+        horasPorDia: ritmo?.horasPorDia ?? null,
       };
       const info = nombres.get(regla.deviceId);
       return {

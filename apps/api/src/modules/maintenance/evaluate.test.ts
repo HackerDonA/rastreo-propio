@@ -214,3 +214,71 @@ describe('compararUrgencia', () => {
     expect(orden).toEqual(['overdue', 'due_soon', 'ok']);
   });
 });
+
+describe('estimación por ritmo de uso', () => {
+  const porKm = regla({ intervalKm: 5000, noticeKm: 500, baselineKm: 100_000 });
+
+  it('traduce kilómetros faltantes a días con el ritmo de la unidad', () => {
+    // Faltan 480 km a 80 km/día = 6 días.
+    const r = evaluarRegla(
+      porKm,
+      { odometerKm: 104_520, engineHours: null, kmPorDia: 80 },
+      AHORA,
+    );
+    expect(r.diasEstimados).toBe(6);
+    expect(r.fechaEstimada).not.toBeNull();
+  });
+
+  it('no estima cuando la unidad casi no se mueve', () => {
+    // Un vehículo parado nunca llega por kilometraje. Decir "faltan 99999
+    // días" es peor que no decir nada.
+    const r = evaluarRegla(
+      porKm,
+      { odometerKm: 104_520, engineHours: null, kmPorDia: 0 },
+      AHORA,
+    );
+    expect(r.diasEstimados).toBeNull();
+    expect(r.fechaEstimada).toBeNull();
+  });
+
+  it('no estima si no se conoce el ritmo', () => {
+    const r = evaluarRegla(porKm, { odometerKm: 104_520, engineHours: null }, AHORA);
+    expect(r.diasEstimados).toBeNull();
+  });
+
+  it('da días negativos cuando ya venció', () => {
+    const r = evaluarRegla(
+      porKm,
+      { odometerKm: 105_400, engineHours: null, kmPorDia: 80 },
+      AHORA,
+    );
+    expect(r.diasEstimados).toBeLessThan(0);
+  });
+
+  it('para una regla por fecha, los días ya son el dato', () => {
+    const porFecha = regla({
+      intervalDays: 180,
+      baselineAt: new Date('2026-06-01T12:00:00Z'),
+    });
+    const r = evaluarRegla(porFecha, sinLecturas, AHORA);
+    // 1 jun a 31 ago son 91 días; faltan 89 de los 180.
+    expect(r.diasEstimados).toBe(89);
+  });
+
+  it('distingue dos unidades con los mismos km pero distinto ritmo', () => {
+    // Es justo lo que un contador esconde: mismos kilómetros faltantes, pero
+    // una está a una semana y la otra a más de un mes.
+    const intensa = evaluarRegla(
+      porKm,
+      { odometerKm: 104_500, engineHours: null, kmPorDia: 100 },
+      AHORA,
+    );
+    const ligera = evaluarRegla(
+      porKm,
+      { odometerKm: 104_500, engineHours: null, kmPorDia: 15 },
+      AHORA,
+    );
+    expect(intensa.diasEstimados).toBe(5);
+    expect(ligera.diasEstimados).toBe(33);
+  });
+});
