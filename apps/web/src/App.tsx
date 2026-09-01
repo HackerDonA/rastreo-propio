@@ -5,9 +5,12 @@ import { actualizarUnidad } from './lib/api.ts';
 import { BarraFlota } from './components/BarraFlota.tsx';
 import { FichaUnidad } from './components/FichaUnidad.tsx';
 import { MapaEnVivo } from './components/MapaEnVivo.tsx';
+import { PanelMantenimientos } from './components/PanelMantenimientos.tsx';
 import { PanelUnidades } from './components/PanelUnidades.tsx';
 import { useFlota } from './lib/useFlota.ts';
 import type { Categoria } from './lib/vehiculos.ts';
+
+type Vista = 'mapa' | 'mantenimientos';
 
 /** Lee el tema aplicado por el script en linea de index.html. */
 function temaInicial(): boolean {
@@ -29,6 +32,7 @@ export function App(): JSX.Element {
   const [oscuro, setOscuro] = useState(temaInicial);
   const [panelAbierto, setPanelAbierto] = useState(false);
   const [mostrarNombres, setMostrarNombres] = useState(nombresIniciales);
+  const [vista, setVista] = useState<Vista>('mapa');
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', oscuro);
@@ -131,6 +135,33 @@ export function App(): JSX.Element {
         onCambiarTema={cambiarTema}
       />
 
+      {/* Pestanas de nivel superior */}
+      <nav className="borde panel flex shrink-0 gap-1 border-b px-4" aria-label="Secciones">
+        {([
+          { id: 'mapa', etiqueta: 'Mapa en vivo' },
+          { id: 'mantenimientos', etiqueta: 'Mantenimientos' },
+        ] as const).map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            onClick={() => {
+              setVista(t.id);
+            }}
+            aria-current={vista === t.id ? 'page' : undefined}
+            className={`-mb-px border-b-2 px-3 py-2 text-sm font-medium transition ${
+              vista === t.id
+                ? 'border-blue-600 text-blue-600 dark:text-blue-400'
+                : 'texto-suave border-transparent hover:border-black/15 dark:hover:border-white/20'
+            }`}
+          >
+            {t.etiqueta}
+          </button>
+        ))}
+      </nav>
+
+      {vista === 'mantenimientos' ? (
+        <PanelMantenimientos unidades={unidades} />
+      ) : (
       <div className="relative flex min-h-0 flex-1">
         {/* Panel lateral. En pantallas chicas se convierte en un cajon. */}
         <aside
@@ -239,6 +270,7 @@ export function App(): JSX.Element {
           )}
         </main>
       </div>
+      )}
     </div>
   );
 }
