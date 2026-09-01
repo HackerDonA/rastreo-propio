@@ -172,16 +172,21 @@ Abre <http://localhost:5173> y verás la flota moviéndose.
 - [x] Ficha de detalle de la unidad seleccionada
 - [x] Modo claro y oscuro, y diseño responsivo
 - [x] Estados de carga, vacío y error resueltos
-- [ ] Vista de historial con selector de rango de fechas
+- [x] Vista de historial con línea de tiempo y selector de rango
 - [x] Vista de mantenimientos con barras de progreso e historial de servicios
 - [x] Dibujo de geocercas sobre el mapa (círculo y polígono)
 - [x] Centro de avisos con notificaciones del navegador
 - [x] Comandos remotos con confirmación escrita para los peligrosos
+- [x] Exportación del recorrido en CSV, GPX y GeoJSON
+- [x] Capas de mapa: calles, oscuro, minimalista y satélite
+- [x] Compartir la ubicación de una unidad por enlace temporal
+- [x] Predicción de mantenimiento por ritmo real de uso
 
 **Operación**
 - [x] ADRs de las decisiones de arquitectura
 - [x] Pruebas de las conversiones de unidades y la simplificación de rutas
 - [x] Scripts de respaldo y restauración (PowerShell y Bash), probados contra la base real
+- [x] Script de purga de historial, con protección de la última posición de cada unidad
 - [x] CI con lint, typecheck, tests, build y validación de la infraestructura
 - [x] Guía de migración a producción (Raspberry Pi / VPS)
 
