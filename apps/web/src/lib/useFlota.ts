@@ -39,6 +39,11 @@ export function useFlota(): EstadoFlota {
   const socketRef = useRef<WebSocket | null>(null);
 
   const recargar = useCallback(() => {
+    // El estado de carga se marca AQUI, en el manejador, y no dentro del
+    // efecto. Llamar a setState de forma sincrona en el cuerpo de un efecto
+    // provoca un render en cascada (regla react-hooks/set-state-in-effect).
+    setCarga('cargando');
+    setError(null);
     setIntento((n) => n + 1);
   }, []);
 
@@ -55,8 +60,6 @@ export function useFlota(): EstadoFlota {
   // --- Carga inicial --------------------------------------------------------
   useEffect(() => {
     const controlador = new AbortController();
-    setCarga('cargando');
-    setError(null);
 
     obtenerUnidades(controlador.signal)
       .then((datos) => {

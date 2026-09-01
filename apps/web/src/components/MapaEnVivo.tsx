@@ -101,9 +101,14 @@ export function MapaEnVivo({
       setMapaListo(true);
     });
 
+    // El ref se copia a una variable local: para cuando corra la limpieza,
+    // marcadoresRef.current podria apuntar a otro objeto y se fugarian los
+    // marcadores de este mapa sin quitarlos nunca.
+    const marcadoresDeEsteMapa = marcadoresRef.current;
+
     return () => {
-      for (const { marker } of marcadoresRef.current.values()) marker.remove();
-      marcadoresRef.current.clear();
+      for (const { marker } of marcadoresDeEsteMapa.values()) marker.remove();
+      marcadoresDeEsteMapa.clear();
       setNodos([]);
       mapa.remove();
       mapaRef.current = null;

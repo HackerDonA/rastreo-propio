@@ -55,16 +55,23 @@ export function BurbujaUnidad({
     onPanelAbierto(unidad.id, panel !== 'ninguno');
   }, [panel, unidad.id, onPanelAbierto]);
 
-  useEffect(() => {
-    if (panel === 'nombre') {
-      setBorrador(unidad.name);
-      // El foco se pide en el siguiente cuadro, cuando el input ya existe.
-      requestAnimationFrame(() => {
-        entradaRef.current?.focus();
-        entradaRef.current?.select();
-      });
-    }
-  }, [panel, unidad.name]);
+  /**
+   * Abre el editor de nombre.
+   *
+   * El borrador se siembra AQUI, en el manejador, y no en un efecto que
+   * observe `panel`: llamar a setState de forma sincrona dentro de un efecto
+   * provoca un render en cascada (regla react-hooks/set-state-in-effect).
+   */
+  const abrirEditorNombre = (): void => {
+    setBorrador(unidad.name);
+    setError(null);
+    setPanel('nombre');
+    // El foco se pide en el siguiente cuadro, cuando el input ya existe.
+    requestAnimationFrame(() => {
+      entradaRef.current?.focus();
+      entradaRef.current?.select();
+    });
+  };
 
   // Cerrar al hacer clic fuera o con Escape.
   useEffect(() => {
@@ -132,9 +139,7 @@ export function BurbujaUnidad({
           onClick={() => {
             onSeleccionar(unidad.id);
           }}
-          onDoubleClick={() => {
-            setPanel('nombre');
-          }}
+          onDoubleClick={abrirEditorNombre}
           className="flex items-center gap-1.5 rounded-full"
           title={`${unidad.name} · ${ETIQUETA_ESTADO[unidad.state]}${
             unidad.position === null ? '' : ` · ${velocidad} km/h`
@@ -192,9 +197,7 @@ export function BurbujaUnidad({
           >
             <OpcionMenu
               texto="Cambiar nombre"
-              onClick={() => {
-                setPanel('nombre');
-              }}
+              onClick={abrirEditorNombre}
               icono={
                 <path d="M4 20h4L19 9a2.1 2.1 0 0 0-3-3L5 17v3Z" strokeLinejoin="round" />
               }

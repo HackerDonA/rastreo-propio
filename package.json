@@ -19,13 +19,19 @@
     "build": "pnpm --recursive --filter \"./apps/*\" build",
     "typecheck": "pnpm --recursive --filter \"./apps/*\" typecheck && pnpm typecheck:scripts",
     "typecheck:scripts": "tsc -p scripts/tsconfig.json",
-    "lint": "pnpm --recursive --filter \"./apps/*\" lint",
+    "lint": "eslint .",
     "test": "pnpm --recursive --filter \"./apps/*\" test",
-    "simulate": "tsx scripts/simulate-fleet.ts"
+    "simulate": "tsx scripts/simulate-fleet.ts",
+    "lint:fix": "eslint . --fix"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/node": "^24.13.3",
+    "eslint": "^10.9.1",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.11.0",
     "tsx": "^4.20.6",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.68.0"
   }
 }

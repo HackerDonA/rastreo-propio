@@ -62,6 +62,10 @@ export function PanelMantenimientos({ unidades }: Props): JSX.Element {
   }, []);
 
   useEffect(() => {
+    // `recargar` es asincrona: todos sus setState ocurren DESPUES del primer
+    // await, asi que no hay render en cascada. La regla no puede distinguirlo
+    // y marca cualquier llamada en el cuerpo del efecto.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void recargar();
     // Se refresca cada minuto: el progreso avanza conforme los vehículos
     // acumulan kilómetros, pero no tan rápido como para justificar un WebSocket.
