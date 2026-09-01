@@ -48,6 +48,7 @@ export interface FleetSummary {
 
 export type ServerMessage =
   | { readonly type: 'positions'; readonly units: readonly Unit[] }
+  | { readonly type: 'events'; readonly events: readonly import('./flota-api.ts').EventoFlota[] }
   | { readonly type: 'upstream'; readonly connected: boolean };
 
 // ----------------------------------------------------------------------------

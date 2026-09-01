@@ -2,13 +2,16 @@
  * Ficha flotante de la unidad seleccionada, sobre el mapa.
  */
 
-import type { JSX } from 'react';
+import { useState, type JSX } from 'react';
 
+import type { Ficha } from '../lib/flota-api.ts';
 import { CLASES_ESTADO, ETIQUETA_ESTADO, type Unit } from '../lib/tipos.ts';
 
 interface Props {
   readonly unidad: Unit;
+  readonly ficha: Ficha | null;
   readonly onCerrar: () => void;
+  readonly onEditarFicha: () => void;
 }
 
 interface DatoProps {
@@ -25,7 +28,7 @@ function Dato({ etiqueta, valor }: DatoProps): JSX.Element {
   );
 }
 
-export function FichaUnidad({ unidad, onCerrar }: Props): JSX.Element {
+export function FichaUnidad({ unidad, ficha, onCerrar, onEditarFicha }: Props): JSX.Element {
   const p = unidad.position;
 
   return (
@@ -36,7 +39,12 @@ export function FichaUnidad({ unidad, onCerrar }: Props): JSX.Element {
       <div className="mb-3 flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h2 className="truncate text-sm font-semibold">{unidad.name}</h2>
-          <p className="texto-suave font-mono text-xs">{unidad.uniqueId}</p>
+          <p className="texto-suave font-mono text-xs">
+            {ficha?.plate ?? unidad.uniqueId}
+            {ficha?.plate != null && (
+              <span className="ml-1.5 opacity-60">· {unidad.uniqueId}</span>
+            )}
+          </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <span
@@ -100,15 +108,104 @@ export function FichaUnidad({ unidad, onCerrar }: Props): JSX.Element {
             </div>
           </div>
 
-          {/* Historial y mantenimientos llegan en la siguiente fase. Se deja el
-              hueco visible para que se entienda que la ficha va a crecer. */}
+          {/* ---------- Ficha administrativa ---------- */}
           <div className="borde mt-3 border-t pt-3">
-            <p className="texto-suave text-[11px]">
-              Historial y mantenimientos: próxima fase.
-            </p>
+            {ficha === null ? (
+              <button
+                type="button"
+                onClick={onEditarFicha}
+                className="borde w-full rounded-md border border-dashed px-2 py-2 text-[11px] transition hover:bg-black/5 dark:hover:bg-white/5"
+              >
+                + Capturar placa, conductor y documentos
+              </button>
+            ) : (
+              <>
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="texto-suave text-[10px] font-semibold tracking-wide uppercase">
+                    Ficha del vehículo
+                  </span>
+                  <button
+                    type="button"
+                    onClick={onEditarFicha}
+                    className="texto-suave text-[10px] underline"
+                  >
+                    Editar
+                  </button>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {ficha.driverName !== null && (
+                    <Dato etiqueta="Conductor" valor={ficha.driverName} />
+                  )}
+                  {ficha.assignment !== null && (
+                    <Dato etiqueta="Ruta" valor={ficha.assignment} />
+                  )}
+                  {(ficha.brand !== null || ficha.model !== null) && (
+                    <Dato
+                      etiqueta="Vehículo"
+                      valor={[ficha.brand, ficha.model, ficha.year]
+                        .filter((x) => x !== null)
+                        .join(' ')}
+                    />
+                  )}
+                  {ficha.odometerOffsetKm !== null && p.totalDistanceKm !== null && (
+                    <Dato
+                      etiqueta="Km reales"
+                      valor={`${(ficha.odometerOffsetKm + p.totalDistanceKm).toLocaleString(
+                        'es-MX',
+                        { maximumFractionDigits: 0 },
+                      )} km`}
+                    />
+                  )}
+                </div>
+                <Vencimientos ficha={ficha} />
+              </>
+            )}
           </div>
         </>
       )}
+    </div>
+  );
+}
+
+/**
+ * Documentos por vencer.
+ *
+ * Solo se muestran los que ya urgen: una fecha a seis meses no aporta nada en
+ * una ficha que se consulta de pasada.
+ */
+function Vencimientos({ ficha }: { readonly ficha: Ficha }): JSX.Element | null {
+  // El reloj se captura al montar, no en cada render. Leer Date.now() durante
+  // el render hace que el resultado dependa de CUANDO se pinta, que es justo
+  // lo que la regla react-hooks/purity impide. Para un vencimiento medido en
+  // dias, el instante del montaje es tan bueno como cualquier otro.
+  const [hoy] = useState(() => Date.now());
+  const dias = (iso: string | null): number | null =>
+    iso === null ? null : Math.ceil((new Date(iso).getTime() - hoy) / 86_400_000);
+
+  const docs = [
+    { etiqueta: 'Seguro', d: dias(ficha.insuranceExpires) },
+    { etiqueta: 'Verificación', d: dias(ficha.inspectionExpires) },
+    { etiqueta: 'Tenencia', d: dias(ficha.registrationExpires) },
+  ].filter((x): x is { etiqueta: string; d: number } => x.d !== null && x.d <= 60);
+
+  if (docs.length === 0) return null;
+
+  return (
+    <div className="borde mt-2 space-y-0.5 border-t pt-2">
+      {docs.map((x) => (
+        <div key={x.etiqueta} className="flex justify-between text-[11px]">
+          <span className="texto-suave">{x.etiqueta}</span>
+          <span
+            className={
+              x.d < 0
+                ? 'font-medium text-red-600 dark:text-red-400'
+                : 'font-medium text-amber-600 dark:text-amber-400'
+            }
+          >
+            {x.d < 0 ? `vencido hace ${String(-x.d)} d` : `vence en ${String(x.d)} d`}
+          </span>
+        </div>
+      ))}
     </div>
   );
 }

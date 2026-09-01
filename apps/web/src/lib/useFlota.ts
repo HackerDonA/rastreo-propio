@@ -8,6 +8,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { obtenerUnidades, wsUrl } from './api.ts';
+import type { EventoFlota } from './flota-api.ts';
 import type { ServerMessage, Unit } from './tipos.ts';
 
 export type EstadoCarga = 'cargando' | 'listo' | 'error';
@@ -23,6 +24,14 @@ export interface EstadoFlota {
   readonly recargar: () => void;
   /** Aplica en local una unidad ya guardada en el servidor. */
   readonly aplicarUnidad: (unidad: Unit) => void;
+  /**
+   * Ultimo lote de eventos recibido por el WebSocket.
+   *
+   * Es un lote, no una lista acumulada: quien lo consume decide si lo apila,
+   * lo muestra como aviso emergente o lo descarta. Acumularlos aqui obligaria
+   * a este hook a decidir cuantos conservar, que no es su problema.
+   */
+  readonly eventosEntrantes: readonly EventoFlota[];
 }
 
 const REINTENTO_BASE_MS = 1_000;
@@ -34,6 +43,7 @@ export function useFlota(): EstadoFlota {
   const [error, setError] = useState<string | null>(null);
   const [enVivo, setEnVivo] = useState(false);
   const [ultimoMensaje, setUltimoMensaje] = useState<Date | null>(null);
+  const [eventosEntrantes, setEventosEntrantes] = useState<readonly EventoFlota[]>([]);
 
   const [intento, setIntento] = useState(0);
   const socketRef = useRef<WebSocket | null>(null);
@@ -106,6 +116,11 @@ export function useFlota(): EstadoFlota {
           return;
         }
 
+        if (mensaje.type === 'events') {
+          setEventosEntrantes(mensaje.events);
+          return;
+        }
+
         setUltimoMensaje(new Date());
         // Fusion: se reemplazan las unidades que llegaron y se conservan las
         // demas. El mensaje trae solo las que se movieron en la ultima ventana.
@@ -140,5 +155,14 @@ export function useFlota(): EstadoFlota {
     };
   }, []);
 
-  return { unidades, carga, error, enVivo, ultimoMensaje, recargar, aplicarUnidad };
+  return {
+    unidades,
+    carga,
+    error,
+    enVivo,
+    ultimoMensaje,
+    recargar,
+    aplicarUnidad,
+    eventosEntrantes,
+  };
 }

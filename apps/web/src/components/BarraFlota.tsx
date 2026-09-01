@@ -12,6 +12,9 @@ interface Props {
   readonly enVivo: boolean;
   readonly oscuro: boolean;
   readonly onCambiarTema: () => void;
+  /** Centro de avisos. Se recibe como elemento para que la barra no dependa
+   *  del estado de los eventos: solo le reserva su lugar. */
+  readonly avisos?: JSX.Element | undefined;
 }
 
 interface IndicadorProps {
@@ -34,7 +37,13 @@ function Indicador({ etiqueta, valor, color }: IndicadorProps): JSX.Element {
   );
 }
 
-export function BarraFlota({ unidades, enVivo, oscuro, onCambiarTema }: Props): JSX.Element {
+export function BarraFlota({
+  unidades,
+  enVivo,
+  oscuro,
+  onCambiarTema,
+  avisos,
+}: Props): JSX.Element {
   const stats = useMemo(() => {
     const enMovimiento = unidades.filter((u) => u.state === 'moving').length;
     const detenidas = unidades.filter((u) => u.state === 'stopped').length;
@@ -105,6 +114,8 @@ export function BarraFlota({ unidades, enVivo, oscuro, onCambiarTema }: Props): 
           />
           <span className="texto-suave font-medium">{enVivo ? 'En vivo' : 'Sin conexión'}</span>
         </div>
+
+        {avisos}
 
         <button
           type="button"

@@ -2,7 +2,11 @@ import { useCallback, useEffect, useState } from 'react';
 import type { JSX } from 'react';
 
 import { actualizarUnidad } from './lib/api.ts';
+import { obtenerFichas, obtenerGeocercas, type Ficha, type Geocerca } from './lib/flota-api.ts';
 import { BarraFlota } from './components/BarraFlota.tsx';
+import { CentroAvisos } from './components/CentroAvisos.tsx';
+import { FichaVehiculo } from './components/FichaVehiculo.tsx';
+import { PanelGeocercas, type ModoDibujo } from './components/PanelGeocercas.tsx';
 import { FichaUnidad } from './components/FichaUnidad.tsx';
 import { MapaEnVivo } from './components/MapaEnVivo.tsx';
 import { PanelMantenimientos } from './components/PanelMantenimientos.tsx';
@@ -27,12 +31,22 @@ function nombresIniciales(): boolean {
 }
 
 export function App(): JSX.Element {
-  const { unidades, carga, error, enVivo, recargar, aplicarUnidad } = useFlota();
+  const { unidades, carga, error, enVivo, recargar, aplicarUnidad, eventosEntrantes } =
+    useFlota();
   const [seleccionada, setSeleccionada] = useState<number | null>(null);
   const [oscuro, setOscuro] = useState(temaInicial);
   const [panelAbierto, setPanelAbierto] = useState(false);
   const [mostrarNombres, setMostrarNombres] = useState(nombresIniciales);
   const [vista, setVista] = useState<Vista>('mapa');
+  const [pestanaLateral, setPestanaLateral] = useState<'unidades' | 'zonas'>('unidades');
+  const [geocercas, setGeocercas] = useState<readonly Geocerca[]>([]);
+  const [fichas, setFichas] = useState<ReadonlyMap<number, Ficha>>(new Map());
+  const [editandoFicha, setEditandoFicha] = useState<number | null>(null);
+  const [modoDibujo, setModoDibujo] = useState<ModoDibujo>(null);
+  const [puntosDibujo, setPuntosDibujo] = useState<readonly (readonly [number, number])[]>([]);
+  const [encuadre, setEncuadre] = useState<readonly (readonly [number, number])[] | null>(
+    null,
+  );
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', oscuro);
@@ -43,6 +57,28 @@ export function App(): JSX.Element {
       // recuerda entre sesiones, que es una degradacion aceptable.
     }
   }, [oscuro]);
+
+  const recargarGeocercas = useCallback(() => {
+    obtenerGeocercas()
+      .then(setGeocercas)
+      .catch(() => {
+        // Sin geocercas la aplicacion sigue siendo util; no vale la pena
+        // bloquear el mapa por esto.
+      });
+  }, []);
+
+  const recargarFichas = useCallback(() => {
+    obtenerFichas()
+      .then(setFichas)
+      .catch(() => {
+        /* idem: las fichas son un extra sobre la telemetria */
+      });
+  }, []);
+
+  useEffect(() => {
+    recargarGeocercas();
+    recargarFichas();
+  }, [recargarGeocercas, recargarFichas]);
 
   const cambiarTema = useCallback(() => {
     setOscuro((v) => !v);
@@ -82,7 +118,72 @@ export function App(): JSX.Element {
     [aplicarUnidad],
   );
 
+  const agregarPunto = useCallback(
+    (punto: readonly [number, number]) => {
+      setPuntosDibujo((previos) => {
+        // El circulo se define con exactamente dos clics: centro y borde. Un
+        // tercero solo confundiria.
+        if (modoDibujo === 'circulo' && previos.length >= 2) return [punto];
+        return [...previos, punto];
+      });
+    },
+    [modoDibujo],
+  );
+
+  const quitarUltimoPunto = useCallback(() => {
+    setPuntosDibujo((previos) => previos.slice(0, -1));
+  }, []);
+
+  const limpiarPuntos = useCallback(() => {
+    setPuntosDibujo([]);
+  }, []);
+
+  const centrarEnAnillo = useCallback(
+    (anillo: readonly (readonly [number, number])[]) => {
+      setVista('mapa');
+      // Se crea un arreglo nuevo a proposito: el efecto del mapa reacciona al
+      // cambio de referencia, asi que reencuadrar en la MISMA zona dos veces
+      // seguidas tambien funciona.
+      setEncuadre([...anillo]);
+    },
+    [],
+  );
+
+  const irAUnidad = useCallback((deviceId: number) => {
+    setVista('mapa');
+    setSeleccionada(deviceId);
+  }, []);
+
   const unidadSeleccionada = unidades.find((u) => u.id === seleccionada) ?? null;
+  const fichaSeleccionada =
+    seleccionada === null ? null : (fichas.get(seleccionada) ?? null);
+  const unidadEditando =
+    editandoFicha === null ? null : (unidades.find((u) => u.id === editandoFicha) ?? null);
+
+  // Vista previa del circulo mientras se dibuja: se calcula igual que en el
+  // backend para que lo que se ve sea lo que se guarda.
+  const anilloPrevio = (():
+    | readonly (readonly [number, number])[]
+    | null => {
+    if (modoDibujo !== 'circulo' || puntosDibujo.length < 2) return null;
+    const centro = puntosDibujo[0];
+    const borde = puntosDibujo[1];
+    if (centro === undefined || borde === undefined) return null;
+    const R = 6_371_000;
+    const rad = (d: number): number => (d * Math.PI) / 180;
+    const dLat = rad(borde[1] - centro[1]);
+    const dLon = rad(borde[0] - centro[0]);
+    const h =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos(rad(centro[1])) * Math.cos(rad(borde[1])) * Math.sin(dLon / 2) ** 2;
+    const radio = 2 * R * Math.asin(Math.sqrt(h));
+    const gLat = radio / 111_320;
+    const gLon = radio / (111_320 * Math.cos(rad(centro[1])));
+    return Array.from({ length: 65 }, (_, i) => {
+      const ang = (i / 64) * 2 * Math.PI;
+      return [centro[0] + gLon * Math.cos(ang), centro[1] + gLat * Math.sin(ang)] as const;
+    });
+  })();
 
   // --- Error de carga -------------------------------------------------------
   if (carga === 'error') {
@@ -133,6 +234,9 @@ export function App(): JSX.Element {
         enVivo={enVivo}
         oscuro={oscuro}
         onCambiarTema={cambiarTema}
+        avisos={
+          <CentroAvisos entrantes={eventosEntrantes} onIrAUnidad={irAUnidad} />
+        }
       />
 
       {/* Pestanas de nivel superior */}
@@ -170,22 +274,61 @@ export function App(): JSX.Element {
                         panelAbierto ? 'translate-x-0 shadow-2xl' : '-translate-x-full'
                       }`}
         >
-          {carga === 'cargando' ? (
-            <div className="space-y-3 p-4">
-              {Array.from({ length: 6 }, (_, i) => (
-                <div key={i} className="animate-pulse space-y-2">
-                  <div className="h-3.5 w-2/3 rounded bg-black/8 dark:bg-white/10" />
-                  <div className="h-2.5 w-1/2 rounded bg-black/6 dark:bg-white/6" />
-                </div>
+          <div className="flex h-full flex-col">
+            <nav className="borde flex shrink-0 border-b" aria-label="Panel lateral">
+              {([
+                { id: 'unidades', etiqueta: `Unidades (${String(unidades.length)})` },
+                { id: 'zonas', etiqueta: `Zonas (${String(geocercas.length)})` },
+              ] as const).map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => {
+                    setPestanaLateral(t.id);
+                  }}
+                  aria-current={pestanaLateral === t.id ? 'true' : undefined}
+                  className={`-mb-px flex-1 border-b-2 px-2 py-2 text-xs font-medium transition ${
+                    pestanaLateral === t.id
+                      ? 'border-blue-600 text-blue-600 dark:text-blue-400'
+                      : 'texto-suave border-transparent hover:border-black/15 dark:hover:border-white/20'
+                  }`}
+                >
+                  {t.etiqueta}
+                </button>
               ))}
+            </nav>
+
+            <div className="min-h-0 flex-1">
+              {pestanaLateral === 'zonas' ? (
+                <PanelGeocercas
+                  geocercas={geocercas}
+                  unidades={unidades}
+                  modo={modoDibujo}
+                  puntos={puntosDibujo}
+                  onCambiarModo={setModoDibujo}
+                  onLimpiarPuntos={limpiarPuntos}
+                  onQuitarUltimoPunto={quitarUltimoPunto}
+                  onRecargar={recargarGeocercas}
+                  onCentrarEn={centrarEnAnillo}
+                />
+              ) : carga === 'cargando' ? (
+                <div className="space-y-3 p-4">
+                  {Array.from({ length: 6 }, (_, i) => (
+                    <div key={i} className="animate-pulse space-y-2">
+                      <div className="h-3.5 w-2/3 rounded bg-black/8 dark:bg-white/10" />
+                      <div className="h-2.5 w-1/2 rounded bg-black/6 dark:bg-white/6" />
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <PanelUnidades
+                  unidades={unidades}
+                  seleccionada={seleccionada}
+                  onSeleccionar={seleccionar}
+                />
+              )}
             </div>
-          ) : (
-            <PanelUnidades
-              unidades={unidades}
-              seleccionada={seleccionada}
-              onSeleccionar={seleccionar}
-            />
-          )}
+          </div>
         </aside>
 
         {/* Velo para cerrar el cajon en movil */}
@@ -209,6 +352,12 @@ export function App(): JSX.Element {
             onCambiarIcono={cambiarIcono}
             oscuro={oscuro}
             mostrarNombres={mostrarNombres}
+            geocercas={geocercas}
+            dibujando={modoDibujo}
+            onPuntoDibujado={agregarPunto}
+            puntosDibujo={puntosDibujo}
+            anilloPrevio={anilloPrevio}
+            encuadrar={encuadre}
           />
 
           {/* Controles sobre el mapa */}
@@ -248,8 +397,12 @@ export function App(): JSX.Element {
           {unidadSeleccionada !== null && (
             <FichaUnidad
               unidad={unidadSeleccionada}
+              ficha={fichaSeleccionada}
               onCerrar={() => {
                 setSeleccionada(null);
+              }}
+              onEditarFicha={() => {
+                setEditandoFicha(unidadSeleccionada.id);
               }}
             />
           )}
@@ -270,6 +423,19 @@ export function App(): JSX.Element {
           )}
         </main>
       </div>
+      )}
+
+      {unidadEditando !== null && (
+        <FichaVehiculo
+          unidad={unidadEditando}
+          ficha={fichas.get(unidadEditando.id) ?? null}
+          onCerrar={() => {
+            setEditandoFicha(null);
+          }}
+          onGuardada={(ficha) => {
+            setFichas((previas) => new Map(previas).set(ficha.deviceId, ficha));
+          }}
+        />
       )}
     </div>
   );
