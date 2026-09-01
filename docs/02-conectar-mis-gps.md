@@ -615,11 +615,53 @@ Si aun así quieres probar ahora con port forwarding:
 
 ## (i) Migrar desde Ruhavik
 
-### La advertencia que define todo el plan
+### ¿Se me va a desconectar de Ruhavik?
 
-> 🚨 **La mayoría de los rastreadores baratos apuntan a un solo servidor a la
-> vez.** En cuanto reapuntes un equipo a tu servidor, **desaparece de Ruhavik**.
-> No hay periodo de convivencia.
+**Depende del equipo, y la diferencia es grande.**
+
+| Tu equipo | ¿Puede reportar a los dos a la vez? |
+|---|---|
+| **Teltonika** (FMB920, FMB003, FMC130…) | ✅ **Sí.** Tiene servidor de respaldo con modo *Duplicate* |
+| **GT06 / Concox / Jimi** | ❌ No. Un solo servidor |
+| **H02 / SinoTrack** | ❌ No. Un solo servidor |
+| **GPS103 / Coban** | ❌ No. Un solo servidor |
+| La mayoría de clones sin marca | ❌ No |
+
+#### Si tienes Teltonika: puedes tener los dos
+
+La serie FMB tiene un **servidor de respaldo** con tres modos, según su
+[wiki oficial](https://wiki.teltonika-gps.com/view/FMB920_GPRS_settings):
+
+- **Disable** — no se usa
+- **Backup** — solo manda al segundo si el principal no responde cinco veces
+  seguidas
+- **Duplicate** — ⭐ **manda los registros a AMBOS**, y solo los borra de su
+  memoria cuando los dos confirmaron que los recibieron
+
+*Duplicate* es exactamente lo que quieres para migrar sin riesgo: dejas Ruhavik
+como principal, pones tu servidor como respaldo, y compruebas durante semanas
+que todo cuadra antes de cancelar nada.
+
+Los identificadores de parámetro del servidor de respaldo **cambian entre
+modelos** (en el TMT250 son 2007 dominio, 2008 puerto, 2009 protocolo). Búscalos
+en la página `<TU_MODELO>_Parameter_list` de la wiki de Teltonika, no los
+copies de otro modelo.
+
+#### Si tienes GT06, H02, GPS103 o un clon: no, y hay que planearlo
+
+> 🚨 **Estos equipos apuntan a un solo servidor a la vez.** En cuanto reapuntes
+> uno a tu servidor, **desaparece de Ruhavik**. No hay periodo de convivencia.
+
+No es un límite de Ruhavik ni de Traccar: es del firmware del rastreador, que
+solo guarda una dirección de destino.
+
+> **¿Y no puedo duplicar el tráfico con un proxy?** En teoría sí: un programa
+> que acepte la conexión del rastreador y copie los bytes a los dos servidores.
+> En la práctica se complica, porque protocolos como GT06 **esperan respuesta**
+> (un ACK) del servidor, y con dos servidores llegan dos respuestas distintas.
+> Habría que elegir cuál contestar y descartar la otra. Es viable, pero es
+> escribir y mantener una pieza de infraestructura propia para ahorrarse unas
+> semanas de migración. **No lo recomiendo** para diez unidades.
 
 Por eso la migración va **por lotes**, nunca de golpe.
 
