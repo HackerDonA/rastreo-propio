@@ -1,0 +1,87 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Un push nuevo sobre la misma rama cancela la corrida anterior: no tiene
+# sentido gastar minutos validando un commit que ya quedó obsoleto.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verificar:
+    name: Lint · Typecheck · Tests · Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+
+      - name: Instalar Node
+        uses: actions/setup-node@v6
+        with:
+          # Se prueba contra la versión MÍNIMA que declara engines (>=22), no
+          # contra la más nueva: si algo depende de una API que solo existe en
+          # Node 24, conviene que falle aquí y no en la Raspberry Pi.
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      # --frozen-lockfile falla si el lockfile no coincide con los package.json.
+      # Es lo que garantiza que CI instale exactamente lo mismo que la máquina
+      # de desarrollo, en vez de resolver versiones nuevas por su cuenta.
+      - name: Instalar dependencias
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      # Cubre apps/api, apps/web y también scripts/, que es donde vive el
+      # simulador del que depende todo el ciclo de desarrollo.
+      - name: Typecheck
+        run: pnpm typecheck
+
+      # Las pruebas son de funciones puras (conversión de unidades,
+      # simplificación de rutas, evaluación de mantenimientos), así que no
+      # necesitan ni PostgreSQL ni Traccar.
+      - name: Tests
+        run: pnpm test
+
+      - name: Build
+        run: pnpm build
+
+  # Comprueba que el compose es válido y que traccar.xml es XML bien formado.
+  # Un separador de guiones dentro de un comentario XML deja el contenedor en
+  # bucle de reinicio, y es un error que solo se ve al levantarlo.
+  infra:
+    name: Validar infraestructura
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Validar docker-compose.yml
+        run: |
+          cp .env.example .env
+          docker compose --env-file .env -f infra/docker-compose.yml config --quiet
+          echo "docker-compose.yml es válido"
+
+      - name: Validar traccar.xml
+        run: |
+          python3 -c "import xml.dom.minidom; xml.dom.minidom.parse('infra/traccar.xml')"
+          echo "traccar.xml es XML bien formado"
+
+      - name: Verificar que no haya secretos versionados
+        run: |
+          if git ls-files --error-unmatch .env 2>/dev/null; then
+            echo "ERROR: el archivo .env está versionado" >&2
+            exit 1
+          fi
+          echo "No hay .env en el repositorio"
