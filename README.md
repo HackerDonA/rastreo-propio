@@ -22,12 +22,14 @@ sobre [Traccar](https://www.traccar.org/) como motor de ingesta.
 
 ## Stack
 
+[![CI](https://github.com/HackerDonA/rastreo-propio/actions/workflows/ci.yml/badge.svg)](https://github.com/HackerDonA/rastreo-propio/actions/workflows/ci.yml)
 ![Node](https://img.shields.io/badge/Node-22%2B-339933?logo=node.js&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)
 ![Fastify](https://img.shields.io/badge/Fastify-BFF-000000?logo=fastify&logoColor=white)
 ![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)
 ![Vite](https://img.shields.io/badge/Vite-7-646CFF?logo=vite&logoColor=white)
 ![MapLibre](https://img.shields.io/badge/MapLibre-GL_JS-395AF6?logo=maplibre&logoColor=white)
+![Tailwind](https://img.shields.io/badge/Tailwind-4-06B6D4?logo=tailwindcss&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white)
 ![Traccar](https://img.shields.io/badge/Traccar-6.15.3-1E90FF)
 ![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)
@@ -40,8 +42,7 @@ sobre [Traccar](https://www.traccar.org/) como motor de ingesta.
 | API / BFF | Node 22 + TypeScript + Fastify |
 | Frontend | React 19 + TypeScript + Vite |
 | Mapas | MapLibre GL JS + tiles de OpenFreeMap |
-| Estilos | Tailwind CSS + shadcn/ui |
-| Gráficas | Recharts |
+| Estilos | Tailwind CSS 4 (componentes propios) |
 | Validación | Zod |
 | Tests | Vitest |
 | Monorepo | pnpm workspaces |
@@ -65,7 +66,7 @@ flowchart TB
 
     subgraph nativo["💻 Nativo en Windows"]
         BFF["<b>BFF · Fastify + TS</b><br/>relay WebSocket con agrupamiento<br/>mantenimientos · simplificación de rutas"]
-        WEB["<b>Frontend · React + Vite</b><br/>MapLibre · Tailwind · shadcn/ui"]
+        WEB["<b>Frontend · React + Vite</b><br/>MapLibre · Tailwind CSS"]
     end
 
     SIM["🧪 simulate-fleet.ts<br/>10 vehículos simulados"]
@@ -87,6 +88,12 @@ flowchart TB
     class TRACCAR,PG inf
     class BFF,WEB own
 ```
+
+> **Sobre el stack planeado.** El diseño original contemplaba shadcn/ui y
+> Recharts. Los componentes están escritos a mano siguiendo el lenguaje visual de
+> shadcn pero sin la dependencia, porque el conjunto que hacía falta era pequeño
+> y su CLI es interactiva. Recharts entrará cuando haya gráficas que dibujar; hoy
+> no hay ninguna, y listar una dependencia que no se usa es ruido.
 
 **En verde lo que construimos.** En azul, la infraestructura que solo se
 configura. La decisión de fondo — usar Traccar en vez de escribir decodificadores
@@ -149,7 +156,8 @@ Abre <http://localhost:5173> y verás la flota moviéndose.
 - [x] `GET /api/units/:id/history` — con simplificación Douglas-Peucker
 - [x] `GET /api/units/:id/trips` — viajes detectados por Traccar
 - [x] `GET /api/fleet/summary` — kilómetros del día y unidades activas
-- [ ] Módulo de mantenimientos (CRUD + plantillas + job horario)
+- [x] Módulo de mantenimientos: plantillas, aplicación masiva y job horario
+- [x] Reglas por kilometraje, fecha y horas motor con lógica de "lo que ocurra primero"
 
 **Frontend**
 - [x] Mapa en vivo con burbuja de identificación sobre cada vehículo
@@ -162,14 +170,14 @@ Abre <http://localhost:5173> y verás la flota moviéndose.
 - [x] Modo claro y oscuro, y diseño responsivo
 - [x] Estados de carga, vacío y error resueltos
 - [ ] Vista de historial con selector de rango de fechas
-- [ ] Vista de mantenimientos con barras de progreso
+- [x] Vista de mantenimientos con barras de progreso e historial de servicios
 
 **Operación**
 - [x] ADRs de las decisiones de arquitectura
 - [x] Pruebas de las conversiones de unidades y la simplificación de rutas
-- [ ] Scripts de respaldo y restauración (PowerShell y Bash)
-- [ ] CI con lint, typecheck, tests y build
-- [ ] Guía de migración a producción (Raspberry Pi / VPS)
+- [x] Scripts de respaldo y restauración (PowerShell y Bash), probados contra la base real
+- [x] CI con lint, typecheck, tests, build y validación de la infraestructura
+- [x] Guía de migración a producción (Raspberry Pi / VPS)
 
 ---
 
@@ -260,6 +268,27 @@ registro, y un `Device` real trae 15 campos. Si se leyera la unidad con el
 esquema Zod del proyecto —que solo modela ocho— los otros siete se descartarían
 al validar y el `PUT` los **borraría sin error alguno**. La lectura previa a un
 reemplazo se hace en crudo, y la validación se aplica solo a la respuesta.
+
+**Las restricciones de la base de datos son documentación ejecutable.** Dos
+índices del módulo de mantenimientos evitan bugs que habrían aparecido en
+producción, no en desarrollo: un índice único parcial sobre los avisos abiertos
+impide que el job horario acumule 168 avisos del mismo cambio de aceite en una
+semana, y otro sobre (unidad, plantilla) hace que aplicar una plantilla a la
+flota sea idempotente. Escribirlos como reglas en el código habría funcionado
+igual hasta el primer camino concurrente.
+
+**Un linter con información de tipos encuentra cosas que el compilador no.**
+Añadir ESLint al final reveló cuatro problemas reales en código que ya pasaba
+`tsc --strict`: `import.meta.env` sin tipar metía `any` por toda la aplicación,
+dos efectos llamaban a `setState` de forma síncrona provocando renders en
+cascada, y una función de limpieza leía `ref.current` directamente, con lo que
+podía fugar todos los marcadores del mapa que estaba desmontando.
+
+**Ejecutar un script no es lo mismo que leerlo.** El respaldo en PowerShell
+parecía correcto y fallaba siempre: canalizar la salida de `pg_dump` hace que
+PowerShell la convierta a texto y corrompa el binario. Y la restauración
+funcionaba pero imprimía `ATENCIÃ"N`, porque Windows PowerShell 5.1 lee los
+`.ps1` como ANSI si no llevan BOM. Ninguna de las dos se ve revisando el código.
 
 ---
 
