@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Documentación del proyecto
+    url: https://github.com/HackerDonA/rastreo-propio/tree/main/docs
+    about: Instalación, conexión de rastreadores, arquitectura y producción.
+  - name: Foro de Traccar
+    url: https://www.traccar.org/forums/
+    about: Para dudas del motor GPS en sí (protocolos, decodificadores, equipos).
