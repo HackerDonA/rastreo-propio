@@ -130,8 +130,8 @@ export function BurbujaUnidad({
       {/* ---------- Burbuja ---------- */}
       <div
         className={`panel relative flex items-center gap-1.5 rounded-full border py-1
-                    shadow-lg transition-all ${compacta ? 'px-1.5' : 'pr-1 pl-2'}
-                    ${seleccionada ? 'ring-2 ring-blue-500' : ''}`}
+                    sombra-suave transition-all ${compacta ? 'px-1.5' : 'pr-1 pl-2'}
+                    ${seleccionada ? 'ring-2 ring-indigo-500' : ''}`}
         style={{ borderColor: color }}
       >
         <button
@@ -154,12 +154,12 @@ export function BurbujaUnidad({
 
           {!compacta && (
             <>
-              <span className="max-w-36 truncate text-[11px] leading-none font-semibold">
+              <span className="max-w-36 truncate text-xs leading-none font-semibold">
                 {unidad.name}
               </span>
               {unidad.state === 'moving' && (
                 <span
-                  className="text-[10px] leading-none font-semibold tabular-nums"
+                  className="text-xs leading-none font-semibold tabular-nums"
                   style={{ color }}
                 >
                   {velocidad}
@@ -191,8 +191,8 @@ export function BurbujaUnidad({
         {/* ---------- Menú de opciones ---------- */}
         {panel === 'menu' && (
           <div
-            className="borde panel absolute top-full left-1/2 z-10 mt-1.5 w-44 -translate-x-1/2
-                       overflow-hidden rounded-lg border shadow-xl"
+            className="borde panel aparecer absolute top-full left-1/2 z-10 mt-2 w-48 -translate-x-1/2
+                       overflow-hidden rounded-2xl border sombra-alta"
             role="menu"
           >
             <OpcionMenu
@@ -231,10 +231,10 @@ export function BurbujaUnidad({
         {/* ---------- Editar nombre ---------- */}
         {panel === 'nombre' && (
           <div
-            className="borde panel absolute top-full left-1/2 z-10 mt-1.5 w-60 -translate-x-1/2
-                       rounded-lg border p-2.5 shadow-xl"
+            className="borde panel aparecer absolute top-full left-1/2 z-10 mt-2 w-64 -translate-x-1/2
+                       rounded-2xl border p-3 sombra-alta"
           >
-            <label className="texto-suave mb-1 block text-[10px] font-medium tracking-wide uppercase">
+            <label className="texto-suave mb-1 block text-xs font-medium tracking-wide uppercase">
               Nombre de la unidad
             </label>
             <input
@@ -248,14 +248,14 @@ export function BurbujaUnidad({
               onKeyDown={(e) => {
                 if (e.key === 'Enter') void guardarNombre();
               }}
-              className="borde panel mb-2 w-full rounded-md border px-2 py-1.5 text-xs outline-none
-                         focus:ring-2 focus:ring-blue-500/40 disabled:opacity-50"
+              className="borde panel mb-2 w-full rounded-lg border px-2 py-1.5 text-xs outline-none
+                         focus:ring-2 focus:ring-indigo-500/40 disabled:opacity-50"
             />
-            <p className="texto-suave mb-2 text-[10px]">
+            <p className="texto-suave mb-2 text-xs">
               Identificador <span className="font-mono">{unidad.uniqueId}</span> · no cambia
             </p>
             {error !== null && (
-              <p className="mb-2 text-[10px] text-red-600 dark:text-red-400">{error}</p>
+              <p className="mb-2 text-xs text-red-600 dark:text-red-400">{error}</p>
             )}
             <div className="flex gap-1.5">
               <button
@@ -264,8 +264,8 @@ export function BurbujaUnidad({
                 onClick={() => {
                   void guardarNombre();
                 }}
-                className="flex-1 rounded-md bg-blue-600 px-2 py-1.5 text-xs font-medium text-white
-                           transition hover:bg-blue-700 disabled:opacity-50"
+                className="flex-1 rounded-lg bg-indigo-600 px-2 py-1.5 text-xs font-medium text-white
+                           transition hover:bg-indigo-700 disabled:opacity-50"
               >
                 {guardando ? 'Guardando…' : 'Guardar'}
               </button>
@@ -275,7 +275,7 @@ export function BurbujaUnidad({
                 onClick={() => {
                   setPanel('ninguno');
                 }}
-                className="borde texto-suave rounded-md border px-2 py-1.5 text-xs transition
+                className="borde texto-suave rounded-lg border px-2 py-1.5 text-xs transition
                            hover:bg-black/5 dark:hover:bg-white/5"
               >
                 Cancelar
@@ -287,10 +287,10 @@ export function BurbujaUnidad({
         {/* ---------- Elegir ícono ---------- */}
         {panel === 'icono' && (
           <div
-            className="borde panel absolute top-full left-1/2 z-10 mt-1.5 w-56 -translate-x-1/2
-                       rounded-lg border p-2.5 shadow-xl"
+            className="borde panel aparecer absolute top-full left-1/2 z-10 mt-2 w-60 -translate-x-1/2
+                       rounded-2xl border p-3 sombra-alta"
           >
-            <p className="texto-suave mb-2 text-[10px] font-medium tracking-wide uppercase">
+            <p className="texto-suave mb-2 text-xs font-medium tracking-wide uppercase">
               Tipo de vehículo
             </p>
             <div className="grid grid-cols-3 gap-1">
@@ -305,15 +305,15 @@ export function BurbujaUnidad({
                       void cambiarIcono(categoria);
                     }}
                     title={tipoDe(categoria).etiqueta}
-                    className={`flex flex-col items-center gap-0.5 rounded-md px-1 py-1.5 transition
+                    className={`flex flex-col items-center gap-0.5 rounded-lg px-1 py-1.5 transition
                                 disabled:opacity-50 ${
                                   activo
-                                    ? 'bg-blue-600 text-white'
+                                    ? 'bg-indigo-600 text-white'
                                     : 'hover:bg-black/5 dark:hover:bg-white/10'
                                 }`}
                   >
                     <IconoVehiculo categoria={categoria} className="h-5 w-5" />
-                    <span className="text-[9px] leading-tight">
+                    <span className="text-xs leading-tight">
                       {tipoDe(categoria).etiqueta}
                     </span>
                   </button>
@@ -321,7 +321,7 @@ export function BurbujaUnidad({
               })}
             </div>
             {error !== null && (
-              <p className="mt-2 text-[10px] text-red-600 dark:text-red-400">{error}</p>
+              <p className="mt-2 text-xs text-red-600 dark:text-red-400">{error}</p>
             )}
           </div>
         )}
@@ -336,7 +336,7 @@ export function BurbujaUnidad({
       {/* ---------- Flecha de rumbo, sobre la posición exacta ---------- */}
       <div
         className="mt-0.5 flex h-6 w-6 items-center justify-center rounded-full border-2
-                   border-white shadow-md"
+                   border-white sombra-suave"
         style={{ backgroundColor: color, transform: `rotate(${String(rumbo)}deg)` }}
         aria-hidden="true"
       >

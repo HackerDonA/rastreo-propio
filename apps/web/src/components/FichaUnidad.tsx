@@ -22,7 +22,7 @@ interface DatoProps {
 function Dato({ etiqueta, valor }: DatoProps): JSX.Element {
   return (
     <div>
-      <div className="texto-suave text-[10px] tracking-wide uppercase">{etiqueta}</div>
+      <div className="texto-suave text-xs tracking-wide uppercase">{etiqueta}</div>
       <div className="text-sm font-medium tabular-nums">{valor}</div>
     </div>
   );
@@ -34,7 +34,7 @@ export function FichaUnidad({ unidad, ficha, onCerrar, onEditarFicha }: Props): 
   return (
     <div
       className="borde panel absolute right-4 bottom-8 z-10 w-[min(21rem,calc(100%-2rem))]
-                 rounded-xl border p-4 shadow-xl"
+                 rounded-2xl border p-4 sombra-alta"
     >
       <div className="mb-3 flex items-start justify-between gap-3">
         <div className="min-w-0">
@@ -48,7 +48,7 @@ export function FichaUnidad({ unidad, ficha, onCerrar, onEditarFicha }: Props): 
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <span
-            className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1 ring-inset
+            className={`rounded-full px-2 py-0.5 text-xs font-semibold ring-1 ring-inset
                         ${CLASES_ESTADO[unidad.state]}`}
           >
             {ETIQUETA_ESTADO[unidad.state]}
@@ -114,20 +114,20 @@ export function FichaUnidad({ unidad, ficha, onCerrar, onEditarFicha }: Props): 
               <button
                 type="button"
                 onClick={onEditarFicha}
-                className="borde w-full rounded-md border border-dashed px-2 py-2 text-[11px] transition hover:bg-black/5 dark:hover:bg-white/5"
+                className="borde w-full rounded-lg border border-dashed px-2 py-2 text-xs transition hover:bg-black/5 dark:hover:bg-white/5"
               >
                 + Capturar placa, conductor y documentos
               </button>
             ) : (
               <>
                 <div className="mb-2 flex items-center justify-between">
-                  <span className="texto-suave text-[10px] font-semibold tracking-wide uppercase">
+                  <span className="texto-suave text-xs font-semibold tracking-wide uppercase">
                     Ficha del vehículo
                   </span>
                   <button
                     type="button"
                     onClick={onEditarFicha}
-                    className="texto-suave text-[10px] underline"
+                    className="texto-suave text-xs underline"
                   >
                     Editar
                   </button>
@@ -193,7 +193,7 @@ function Vencimientos({ ficha }: { readonly ficha: Ficha }): JSX.Element | null 
   return (
     <div className="borde mt-2 space-y-0.5 border-t pt-2">
       {docs.map((x) => (
-        <div key={x.etiqueta} className="flex justify-between text-[11px]">
+        <div key={x.etiqueta} className="flex justify-between text-xs">
           <span className="texto-suave">{x.etiqueta}</span>
           <span
             className={

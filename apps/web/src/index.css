@@ -2,35 +2,61 @@
 @import 'maplibre-gl/dist/maplibre-gl.css';
 
 /*
-  Tailwind 4 usa el modo oscuro por preferencia del sistema. Aqui se redefine
-  para que dependa de la clase `dark` en <html>, y asi el conmutador manual
+  Tailwind 4 usa el modo oscuro por preferencia del sistema. Aquí se redefine
+  para que dependa de la clase `dark` en <html>, y así el conmutador manual
   pueda ganarle a la preferencia del sistema en ambos sentidos.
 */
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
   /* Colores de estado. Se usan tanto en la interfaz como en los marcadores del
-     mapa, asi que estan en un solo lugar para que no se desincronicen. */
+     mapa, así que están en un solo lugar para que no se desincronicen. */
   --color-estado-movimiento: oklch(0.72 0.19 145);
   --color-estado-detenido: oklch(0.75 0.16 75);
   --color-estado-sinsenal: oklch(0.65 0.02 260);
   --color-estado-alerta: oklch(0.64 0.23 25);
 }
 
+/*
+  ============================================================================
+   PALETA
+  ============================================================================
+   Los grises llevan una pizca de amarillo (matiz ~85 en vez de ~260) en lugar
+   de tirar a azul. Un gris frío se lee como "panel de control industrial"; el
+   mismo gris templado se lee mucho más acogedor sin perder nada de contraste.
+
+   El acento es índigo y no azul puro: es igual de legible y menos severo.
+  ============================================================================
+*/
 :root {
-  --superficie: oklch(0.98 0.003 260);
+  --superficie: oklch(0.985 0.004 85);
   --superficie-panel: oklch(1 0 0);
-  --borde: oklch(0.91 0.005 260);
-  --texto: oklch(0.22 0.01 260);
-  --texto-suave: oklch(0.52 0.015 260);
+  --superficie-suave: oklch(0.965 0.006 85);
+  --borde: oklch(0.915 0.006 85);
+  --borde-suave: oklch(0.945 0.005 85);
+  --texto: oklch(0.26 0.012 265);
+  --texto-suave: oklch(0.54 0.016 265);
+  --acento: oklch(0.55 0.19 270);
+  --acento-suave: oklch(0.96 0.02 270);
+  --sombra: 0 1px 2px oklch(0.2 0.02 265 / 0.05), 0 4px 12px oklch(0.2 0.02 265 / 0.06);
+  --sombra-alta: 0 2px 4px oklch(0.2 0.02 265 / 0.06), 0 12px 32px oklch(0.2 0.02 265 / 0.12);
+  /* Radio base. Las esquinas redondeadas son la mitad de la sensación de
+     "amable" en una interfaz densa. */
+  --radio: 0.75rem;
 }
 
 .dark {
-  --superficie: oklch(0.17 0.012 260);
-  --superficie-panel: oklch(0.21 0.014 260);
-  --borde: oklch(0.29 0.014 260);
-  --texto: oklch(0.96 0.003 260);
-  --texto-suave: oklch(0.68 0.015 260);
+  --superficie: oklch(0.19 0.014 265);
+  --superficie-panel: oklch(0.235 0.016 265);
+  --superficie-suave: oklch(0.27 0.016 265);
+  --borde: oklch(0.32 0.016 265);
+  --borde-suave: oklch(0.28 0.015 265);
+  --texto: oklch(0.96 0.004 85);
+  --texto-suave: oklch(0.72 0.014 265);
+  --acento: oklch(0.72 0.15 270);
+  --acento-suave: oklch(0.3 0.05 270);
+  --sombra: 0 1px 2px oklch(0 0 0 / 0.3), 0 4px 12px oklch(0 0 0 / 0.35);
+  --sombra-alta: 0 2px 4px oklch(0 0 0 / 0.4), 0 12px 32px oklch(0 0 0 / 0.5);
 }
 
 body {
@@ -38,36 +64,119 @@ body {
   color: var(--texto);
   font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
   -webkit-font-smoothing: antialiased;
+  /* Un pelo más grande que el 16 px por omisión del navegador: la interfaz
+     tiene mucho texto pequeño y esto lo levanta todo de forma proporcional. */
+  font-size: 16px;
+  line-height: 1.5;
 }
 
-/* Utilidades sobre las variables de tema, para no repetirlas en cada componente. */
+/* ---------------------------------------------------------------------------
+   Utilidades sobre las variables de tema
+   --------------------------------------------------------------------------- */
 @utility superficie {
   background-color: var(--superficie);
 }
 @utility panel {
   background-color: var(--superficie-panel);
 }
+@utility panel-suave {
+  background-color: var(--superficie-suave);
+}
 @utility borde {
   border-color: var(--borde);
+}
+@utility borde-suave {
+  border-color: var(--borde-suave);
 }
 @utility texto-suave {
   color: var(--texto-suave);
 }
+@utility acento {
+  color: var(--acento);
+}
+@utility bg-acento {
+  background-color: var(--acento);
+}
+@utility sombra-suave {
+  box-shadow: var(--sombra);
+}
+@utility sombra-alta {
+  box-shadow: var(--sombra-alta);
+}
 
-/* La barra de desplazamiento por omision de Windows es muy pesada visualmente
-   dentro de un panel lateral estrecho. */
+/* Tarjeta: el bloque que más se repite en toda la interfaz. */
+@utility tarjeta {
+  background-color: var(--superficie-panel);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  box-shadow: var(--sombra);
+}
+
+/* ---------------------------------------------------------------------------
+   Controles
+   --------------------------------------------------------------------------- */
+
+/* El anillo de foco es visible a propósito: navegar con teclado no debería
+   ser adivinar dónde está el cursor. */
+:where(button, a, input, select, textarea):focus-visible {
+  outline: 2px solid var(--acento);
+  outline-offset: 2px;
+}
+
+/* Los controles interactivos ceden un poco al pulsarlos. Es un detalle
+   pequeño que hace que la interfaz se sienta viva en vez de rígida. */
+button:not(:disabled):active {
+  transform: scale(0.98);
+}
+button {
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease,
+    transform 0.08s ease;
+}
+
+input,
+select,
+textarea {
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+/* La barra de desplazamiento por omisión de Windows es muy pesada dentro de
+   un panel lateral estrecho. */
+.scroll-fino {
+  scrollbar-width: thin;
+  scrollbar-color: var(--borde) transparent;
+}
 .scroll-fino::-webkit-scrollbar {
-  width: 8px;
+  width: 10px;
 }
 .scroll-fino::-webkit-scrollbar-track {
   background: transparent;
 }
 .scroll-fino::-webkit-scrollbar-thumb {
   background: var(--borde);
-  border-radius: 4px;
+  border-radius: 999px;
+  /* El borde transparente deja aire alrededor del pulgar y lo hace más fino
+     a la vista sin reducir el área para agarrarlo con el ratón. */
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+.scroll-fino::-webkit-scrollbar-thumb:hover {
+  background: var(--texto-suave);
+  background-clip: content-box;
 }
 
-/* MapLibre pinta sus controles con estilo claro fijo; se ajustan al tema. */
+/* ---------------------------------------------------------------------------
+   MapLibre
+   --------------------------------------------------------------------------- */
+.maplibregl-ctrl-group {
+  border-radius: 0.6rem !important;
+  box-shadow: var(--sombra) !important;
+  overflow: hidden;
+}
 .dark .maplibregl-ctrl-group {
   background: var(--superficie-panel);
 }
@@ -77,6 +186,9 @@ body {
 .dark .maplibregl-ctrl-icon {
   filter: invert(1) hue-rotate(180deg);
 }
+.maplibregl-ctrl-attrib {
+  border-radius: 0.5rem 0 0 0 !important;
+}
 .dark .maplibregl-ctrl-attrib {
   background: color-mix(in oklch, var(--superficie-panel) 85%, transparent);
   color: var(--texto-suave);
@@ -85,6 +197,9 @@ body {
   color: var(--texto-suave);
 }
 
+/* ---------------------------------------------------------------------------
+   Animaciones
+   --------------------------------------------------------------------------- */
 @keyframes pulso {
   0%,
   100% {
@@ -96,4 +211,48 @@ body {
 }
 .pulso {
   animation: pulso 2s ease-in-out infinite;
+}
+
+/* Los avisos emergentes entran deslizándose. Aparecer de golpe en una esquina
+   se percibe como un error del navegador; entrar se percibe como un aviso. */
+@keyframes entrar-derecha {
+  from {
+    opacity: 0;
+    transform: translateX(1.5rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+.entrar-derecha {
+  animation: entrar-derecha 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes aparecer {
+  from {
+    opacity: 0;
+    transform: translateY(-0.35rem) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+.aparecer {
+  animation: aparecer 0.16s ease-out;
+}
+
+/* Quien pidió menos movimiento en su sistema no debería recibirlo. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  button:not(:disabled):active {
+    transform: none;
+  }
 }

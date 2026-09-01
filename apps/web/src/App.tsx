@@ -189,7 +189,7 @@ export function App(): JSX.Element {
   if (carga === 'error') {
     return (
       <div className="superficie flex h-dvh items-center justify-center p-6">
-        <div className="borde panel max-w-md rounded-xl border p-6 text-center">
+        <div className="borde panel max-w-md rounded-2xl border p-6 text-center">
           <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-red-500/12 text-red-600 dark:text-red-400">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-5 w-5" aria-hidden="true">
               <path d="M12 8v5M12 16.5v.5" strokeLinecap="round" />
@@ -218,7 +218,7 @@ export function App(): JSX.Element {
           <button
             type="button"
             onClick={recargar}
-            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700"
+            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-700"
           >
             Reintentar
           </button>
@@ -254,7 +254,7 @@ export function App(): JSX.Element {
             aria-current={vista === t.id ? 'page' : undefined}
             className={`-mb-px border-b-2 px-3 py-2 text-sm font-medium transition ${
               vista === t.id
-                ? 'border-blue-600 text-blue-600 dark:text-blue-400'
+                ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400'
                 : 'texto-suave border-transparent hover:border-black/15 dark:hover:border-white/20'
             }`}
           >
@@ -271,7 +271,7 @@ export function App(): JSX.Element {
         <aside
           className={`borde panel absolute inset-y-0 left-0 z-20 w-80 border-r transition-transform
                       md:relative md:translate-x-0 ${
-                        panelAbierto ? 'translate-x-0 shadow-2xl' : '-translate-x-full'
+                        panelAbierto ? 'translate-x-0 sombra-alta' : '-translate-x-full'
                       }`}
         >
           <div className="flex h-full flex-col">
@@ -289,7 +289,7 @@ export function App(): JSX.Element {
                   aria-current={pestanaLateral === t.id ? 'true' : undefined}
                   className={`-mb-px flex-1 border-b-2 px-2 py-2 text-xs font-medium transition ${
                     pestanaLateral === t.id
-                      ? 'border-blue-600 text-blue-600 dark:text-blue-400'
+                      ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400'
                       : 'texto-suave border-transparent hover:border-black/15 dark:hover:border-white/20'
                   }`}
                 >
@@ -368,7 +368,7 @@ export function App(): JSX.Element {
                 setPanelAbierto(true);
               }}
               className="borde panel rounded-lg border px-3 py-2 text-sm font-medium
-                         shadow-lg md:hidden"
+                         sombra-suave md:hidden"
             >
               Unidades ({unidades.length})
             </button>
@@ -383,7 +383,7 @@ export function App(): JSX.Element {
                   : 'Mostrar el nombre de cada unidad'
               }
               className={`borde panel flex items-center gap-1.5 rounded-lg border px-2.5 py-2
-                          text-xs font-medium shadow-lg transition ${
+                          text-xs font-medium sombra-suave transition ${
                             mostrarNombres ? '' : 'texto-suave'
                           }`}
             >
@@ -410,7 +410,7 @@ export function App(): JSX.Element {
           {/* Estado vacío: el simulador no está corriendo */}
           {carga === 'listo' && unidades.length === 0 && (
             <div className="pointer-events-none absolute inset-0 flex items-center justify-center p-6">
-              <div className="borde panel pointer-events-auto max-w-sm rounded-xl border p-5 text-center shadow-xl">
+              <div className="borde panel pointer-events-auto max-w-sm rounded-2xl border p-5 text-center sombra-alta">
                 <h2 className="mb-1 text-sm font-semibold">No hay unidades todavía</h2>
                 <p className="texto-suave mb-3 text-sm">
                   Arranca el simulador para ver una flota moviéndose.

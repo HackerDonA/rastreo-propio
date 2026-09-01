@@ -123,7 +123,7 @@ export function PanelUnidades({ unidades, seleccionada, onSeleccionar }: Props):
             aria-label="Buscar unidad"
             className="borde panel w-full rounded-lg border py-2 pr-3 pl-9 text-sm
                        outline-none placeholder:opacity-60
-                       focus:ring-2 focus:ring-blue-500/40"
+                       focus:ring-2 focus:ring-indigo-500/40"
           />
         </div>
 
@@ -138,9 +138,9 @@ export function PanelUnidades({ unidades, seleccionada, onSeleccionar }: Props):
                   setFiltro(f.valor);
                 }}
                 aria-pressed={activo}
-                className={`rounded-md px-2.5 py-1 text-xs font-medium transition ${
+                className={`rounded-lg px-2.5 py-1 text-xs font-medium transition ${
                   activo
-                    ? 'bg-blue-600 text-white'
+                    ? 'bg-indigo-600 text-white'
                     : 'borde texto-suave border hover:bg-black/5 dark:hover:bg-white/5'
                 }`}
               >
@@ -157,8 +157,8 @@ export function PanelUnidades({ unidades, seleccionada, onSeleccionar }: Props):
             onChange={(e) => {
               setOrden(e.target.value as Orden);
             }}
-            className="borde panel flex-1 rounded-md border px-2 py-1 text-xs outline-none
-                       focus:ring-2 focus:ring-blue-500/40"
+            className="borde panel flex-1 rounded-lg border px-2 py-1 text-xs outline-none
+                       focus:ring-2 focus:ring-indigo-500/40"
           >
             {ORDENES.map((o) => (
               <option key={o.valor} value={o.valor}>
@@ -185,8 +185,8 @@ export function PanelUnidades({ unidades, seleccionada, onSeleccionar }: Props):
               </>
             ) : (
               <>
-                <p className="mb-1 font-medium">Ninguna unidad coincide</p>
-                <p className="text-xs">Prueba con otro filtro o búsqueda.</p>
+                <p className="mb-1 font-medium">Nada por aquí</p>
+                <p className="text-xs">Prueba con otro filtro o cambia la búsqueda.</p>
               </>
             )}
           </div>
@@ -204,7 +204,7 @@ export function PanelUnidades({ unidades, seleccionada, onSeleccionar }: Props):
                     aria-current={activa}
                     className={`borde w-full border-b px-4 py-3 text-left transition ${
                       activa
-                        ? 'bg-blue-500/10 ring-1 ring-blue-500/30 ring-inset'
+                        ? 'bg-indigo-500/10 ring-1 ring-indigo-500/30 ring-inset'
                         : 'hover:bg-black/[0.03] dark:hover:bg-white/[0.04]'
                     }`}
                   >
@@ -222,7 +222,7 @@ export function PanelUnidades({ unidades, seleccionada, onSeleccionar }: Props):
                         <span className="truncate text-sm font-medium">{u.name}</span>
                       </span>
                       <span
-                        className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold
+                        className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold
                                     ring-1 ring-inset ${CLASES_ESTADO[u.state]}`}
                       >
                         {ETIQUETA_ESTADO[u.state]}
@@ -248,7 +248,7 @@ export function PanelUnidades({ unidades, seleccionada, onSeleccionar }: Props):
                       )}
                     </div>
 
-                    <div className="texto-suave mt-0.5 pl-7 text-[11px]">
+                    <div className="texto-suave mt-0.5 pl-7 text-xs">
                       {tiempoRelativo(u.position?.fixTime ?? null)}
                     </div>
                   </button>

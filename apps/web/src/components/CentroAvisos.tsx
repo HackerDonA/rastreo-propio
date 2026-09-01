@@ -153,8 +153,8 @@ export function CentroAvisos({ entrantes, onIrAUnidad }: Props): JSX.Element {
           {sinLeer > 0 && (
             <span
               className={`absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center
-                          rounded-full px-1 text-[9px] font-bold text-white
-                          ${alarmasSinLeer ? 'pulso bg-red-600' : 'bg-blue-600'}`}
+                          rounded-full px-1 text-xs font-bold text-white
+                          ${alarmasSinLeer ? 'pulso bg-red-600' : 'bg-indigo-600'}`}
             >
               {sinLeer > 99 ? '99+' : sinLeer}
             </span>
@@ -163,17 +163,17 @@ export function CentroAvisos({ entrantes, onIrAUnidad }: Props): JSX.Element {
 
         {/* ---------- Panel ---------- */}
         {abierto && (
-          <div className="borde panel absolute right-0 z-50 mt-2 w-[min(24rem,calc(100vw-2rem))] overflow-hidden rounded-xl border shadow-2xl">
+          <div className="borde panel aparecer absolute right-0 z-50 mt-2 w-[min(24rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border sombra-alta">
             <div className="borde flex items-center justify-between border-b px-3 py-2">
               <span className="text-sm font-semibold">Avisos</span>
-              <span className="texto-suave text-[11px]">{eventos.length} recientes</span>
+              <span className="texto-suave text-xs">{eventos.length} recientes</span>
             </div>
 
             {permisoNavegador !== 'granted' && 'Notification' in window && (
               <button
                 type="button"
                 onClick={pedirPermiso}
-                className="borde w-full border-b bg-blue-500/8 px-3 py-2 text-left text-[11px] transition hover:bg-blue-500/15"
+                className="borde w-full border-b bg-indigo-500/8 px-3 py-2 text-left text-xs transition hover:bg-indigo-500/15"
               >
                 <span className="font-medium">Activar notificaciones del navegador</span>
                 <span className="texto-suave block">
@@ -185,7 +185,7 @@ export function CentroAvisos({ entrantes, onIrAUnidad }: Props): JSX.Element {
             <div className="scroll-fino max-h-96 overflow-y-auto">
               {eventos.length === 0 ? (
                 <p className="texto-suave px-3 py-8 text-center text-sm">
-                  Todavía no hay avisos.
+                  Todo tranquilo por aquí. Los avisos aparecerán en cuanto pase algo.
                 </p>
               ) : (
                 eventos.map((e) => (
@@ -201,13 +201,13 @@ export function CentroAvisos({ entrantes, onIrAUnidad }: Props): JSX.Element {
                     <div className="flex items-start justify-between gap-2">
                       <span className="text-xs leading-snug">{e.message}</span>
                       <span
-                        className={`shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-semibold
+                        className={`shrink-0 rounded-full px-1.5 py-0.5 text-xs font-semibold
                                     ring-1 ring-inset ${CLASES_SEVERIDAD[e.severity]}`}
                       >
                         {ETIQUETA_SEVERIDAD[e.severity]}
                       </span>
                     </div>
-                    <span className="texto-suave mt-0.5 block text-[10px]">
+                    <span className="texto-suave mt-0.5 block text-xs">
                       {tiempoRelativo(e.eventTime)}
                     </span>
                   </button>
@@ -228,7 +228,7 @@ export function CentroAvisos({ entrantes, onIrAUnidad }: Props): JSX.Element {
               onIrAUnidad(e.deviceId);
               setEmergentes((p) => p.filter((x) => x.id !== e.id));
             }}
-            className={`borde panel pointer-events-auto w-72 rounded-lg border-l-4 p-3 text-left shadow-xl
+            className={`borde panel entrar-derecha pointer-events-auto w-80 rounded-2xl border-l-4 p-3.5 text-left sombra-alta
                         ${e.severity === 'alarm' ? 'border-l-red-600' : 'border-l-amber-500'}`}
           >
             <div className="flex items-start gap-2">
@@ -242,7 +242,7 @@ export function CentroAvisos({ entrantes, onIrAUnidad }: Props): JSX.Element {
               </span>
               <div className="min-w-0">
                 <p className="text-xs leading-snug font-medium">{e.message}</p>
-                <p className="texto-suave mt-0.5 text-[10px]">Clic para ver la unidad</p>
+                <p className="texto-suave mt-0.5 text-xs">Clic para ver la unidad</p>
               </div>
             </div>
           </button>

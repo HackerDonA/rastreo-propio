@@ -35,8 +35,8 @@ const VACIA: DatosFicha = {
 };
 
 const claseCampo =
-  'borde panel w-full rounded-md border px-2.5 py-1.5 text-sm outline-none focus:ring-2 focus:ring-blue-500/40 disabled:opacity-50';
-const claseEtiqueta = 'texto-suave mb-1 block text-[11px] font-medium';
+  'borde panel w-full rounded-lg border px-2.5 py-1.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500/40 disabled:opacity-50';
+const claseEtiqueta = 'texto-suave mb-1 block text-xs font-medium';
 
 export function FichaVehiculo({ unidad, ficha, onCerrar, onGuardada }: Props): JSX.Element {
   // El modal se monta de nuevo cada vez que se abre, asi que basta con
@@ -88,7 +88,7 @@ export function FichaVehiculo({ unidad, ficha, onCerrar, onGuardada }: Props): J
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="borde panel scroll-fino max-h-[88vh] w-full max-w-lg overflow-y-auto rounded-xl border p-5 shadow-2xl">
+      <div className="borde panel scroll-fino max-h-[88vh] w-full max-w-lg overflow-y-auto rounded-2xl border p-5 sombra-alta">
         <div className="mb-4 flex items-start justify-between gap-3">
           <div className="min-w-0">
             <h3 className="truncate text-sm font-semibold">{unidad.name}</h3>
@@ -109,7 +109,7 @@ export function FichaVehiculo({ unidad, ficha, onCerrar, onGuardada }: Props): J
         <div className="space-y-4">
           {/* --- Identificación --- */}
           <section>
-            <h4 className="texto-suave mb-2 text-[10px] font-semibold tracking-wide uppercase">
+            <h4 className="texto-suave mb-2 text-xs font-semibold tracking-wide uppercase">
               Identificación
             </h4>
             <div className="grid grid-cols-2 gap-2">
@@ -148,7 +148,7 @@ export function FichaVehiculo({ unidad, ficha, onCerrar, onGuardada }: Props): J
 
           {/* --- Operación --- */}
           <section>
-            <h4 className="texto-suave mb-2 text-[10px] font-semibold tracking-wide uppercase">
+            <h4 className="texto-suave mb-2 text-xs font-semibold tracking-wide uppercase">
               Operación
             </h4>
             <div className="grid grid-cols-2 gap-2">
@@ -172,7 +172,7 @@ export function FichaVehiculo({ unidad, ficha, onCerrar, onGuardada }: Props): J
 
           {/* --- Odómetro --- */}
           <section>
-            <h4 className="texto-suave mb-2 text-[10px] font-semibold tracking-wide uppercase">
+            <h4 className="texto-suave mb-2 text-xs font-semibold tracking-wide uppercase">
               Kilometraje
             </h4>
             <label className={claseEtiqueta} htmlFor="f-odo">
@@ -180,7 +180,7 @@ export function FichaVehiculo({ unidad, ficha, onCerrar, onGuardada }: Props): J
             </label>
             <input id="f-odo" type="number" inputMode="numeric" value={datos.odometerOffsetKm ?? ''} placeholder="118400"
               onChange={(e) => { numero('odometerOffsetKm')(e.target.value); }} className={claseCampo} />
-            <p className="texto-suave mt-1 text-[10px]">
+            <p className="texto-suave mt-1 text-xs">
               El rastreador cuenta desde que se instaló, no desde que el vehículo salió de la
               agencia. Este número se suma para obtener el kilometraje real.
             </p>
@@ -198,7 +198,7 @@ export function FichaVehiculo({ unidad, ficha, onCerrar, onGuardada }: Props): J
 
           {/* --- Documentos --- */}
           <section>
-            <h4 className="texto-suave mb-2 text-[10px] font-semibold tracking-wide uppercase">
+            <h4 className="texto-suave mb-2 text-xs font-semibold tracking-wide uppercase">
               Documentos
             </h4>
             <div className="grid grid-cols-2 gap-2">
@@ -238,14 +238,14 @@ export function FichaVehiculo({ unidad, ficha, onCerrar, onGuardada }: Props): J
               type="button"
               disabled={guardando}
               onClick={() => { void guardar(); }}
-              className="flex-1 rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-blue-700 disabled:opacity-50"
+              className="flex-1 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-indigo-700 disabled:opacity-50"
             >
               {guardando ? 'Guardando…' : 'Guardar ficha'}
             </button>
             <button
               type="button"
               onClick={onCerrar}
-              className="borde texto-suave rounded-md border px-3 py-2 text-sm transition hover:bg-black/5 dark:hover:bg-white/5"
+              className="borde texto-suave rounded-lg border px-3 py-2 text-sm transition hover:bg-black/5 dark:hover:bg-white/5"
             >
               Cancelar
             </button>

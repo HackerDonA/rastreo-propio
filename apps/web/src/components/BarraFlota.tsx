@@ -26,7 +26,7 @@ interface IndicadorProps {
 function Indicador({ etiqueta, valor, color }: IndicadorProps): JSX.Element {
   return (
     <div className="flex flex-col">
-      <span className="texto-suave text-[10px] tracking-wide uppercase">{etiqueta}</span>
+      <span className="texto-suave text-xs tracking-wide uppercase">{etiqueta}</span>
       <span
         className="text-lg leading-tight font-semibold tabular-nums"
         style={color === undefined ? undefined : { color }}
@@ -67,7 +67,7 @@ export function BarraFlota({
   return (
     <header className="borde panel flex shrink-0 flex-wrap items-center gap-x-6 gap-y-3 border-b px-4 py-3">
       <div className="flex items-center gap-2.5">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-white">
+        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 text-white">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4.5 w-4.5" aria-hidden="true">
             <path d="M12 21s7-5.5 7-11a7 7 0 1 0-14 0c0 5.5 7 11 7 11Z" strokeLinejoin="round" />
             <circle cx="12" cy="10" r="2.5" />
@@ -75,7 +75,7 @@ export function BarraFlota({
         </div>
         <div>
           <h1 className="text-sm leading-tight font-semibold">Rastreo</h1>
-          <p className="texto-suave text-[11px] leading-tight">Monitoreo de flota</p>
+          <p className="texto-suave text-xs leading-tight">Monitoreo de flota</p>
         </div>
       </div>
 
@@ -102,7 +102,7 @@ export function BarraFlota({
 
       <div className="flex items-center gap-3">
         <div
-          className="borde flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px]"
+          className="borde flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs"
           title={
             enVivo
               ? 'La API mantiene abierta su conexión con Traccar'

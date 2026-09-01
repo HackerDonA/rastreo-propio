@@ -125,9 +125,9 @@ export function PanelMantenimientos({ unidades }: Props): JSX.Element {
                   setFiltro(f);
                 }}
                 aria-pressed={filtro === f}
-                className={`rounded-md px-2.5 py-1 text-xs font-medium transition ${
+                className={`rounded-lg px-2.5 py-1 text-xs font-medium transition ${
                   filtro === f
-                    ? 'bg-blue-600 text-white'
+                    ? 'bg-indigo-600 text-white'
                     : 'borde texto-suave border hover:bg-black/5 dark:hover:bg-white/5'
                 }`}
               >
@@ -141,7 +141,7 @@ export function PanelMantenimientos({ unidades }: Props): JSX.Element {
             onClick={() => {
               setDialogo('plantilla');
             }}
-            className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-blue-700"
+            className="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-indigo-700"
           >
             + Nueva plantilla
           </button>
@@ -149,12 +149,12 @@ export function PanelMantenimientos({ unidades }: Props): JSX.Element {
 
         {/* ---------- Plantillas ---------- */}
         <section>
-          <h2 className="texto-suave mb-2 text-[11px] font-semibold tracking-wide uppercase">
+          <h2 className="texto-suave mb-2 text-xs font-semibold tracking-wide uppercase">
             Plantillas · defínelas una vez y aplícalas a la flota
           </h2>
           {plantillas.length === 0 ? (
             <div className="borde panel rounded-lg border border-dashed p-6 text-center">
-              <p className="mb-1 text-sm font-medium">Todavía no hay plantillas</p>
+              <p className="mb-1 text-sm font-medium">Empieza por una plantilla</p>
               <p className="texto-suave text-xs">
                 Una plantilla como &ldquo;aceite cada 5,000 km&rdquo; se define una vez y se
                 aplica a las diez unidades de golpe.
@@ -195,7 +195,7 @@ export function PanelMantenimientos({ unidades }: Props): JSX.Element {
                       .join(' · ')}
                   </p>
                   <div className="flex items-center justify-between">
-                    <span className="texto-suave text-[11px]">
+                    <span className="texto-suave text-xs">
                       {p.appliedCount} unidad{p.appliedCount === 1 ? '' : 'es'}
                     </span>
                     <button
@@ -204,7 +204,7 @@ export function PanelMantenimientos({ unidades }: Props): JSX.Element {
                         setPlantillaActiva(p);
                         setDialogo('aplicar');
                       }}
-                      className="borde rounded-md border px-2 py-1 text-[11px] font-medium transition hover:bg-black/5 dark:hover:bg-white/5"
+                      className="borde rounded-lg border px-2 py-1 text-xs font-medium transition hover:bg-black/5 dark:hover:bg-white/5"
                     >
                       Aplicar a unidades
                     </button>
@@ -217,14 +217,14 @@ export function PanelMantenimientos({ unidades }: Props): JSX.Element {
 
         {/* ---------- Reglas ---------- */}
         <section>
-          <h2 className="texto-suave mb-2 text-[11px] font-semibold tracking-wide uppercase">
+          <h2 className="texto-suave mb-2 text-xs font-semibold tracking-wide uppercase">
             Progreso por unidad
           </h2>
 
           {visibles.length === 0 ? (
             <div className="borde panel rounded-lg border border-dashed p-8 text-center">
               <p className="mb-1 text-sm font-medium">
-                {reglas.length === 0 ? 'Ninguna unidad tiene mantenimientos' : 'Nada en este filtro'}
+                {reglas.length === 0 ? 'Todavía sin mantenimientos' : 'Nada por aquí'}
               </p>
               <p className="texto-suave text-xs">
                 {reglas.length === 0
@@ -312,7 +312,7 @@ function Tarjeta({
 }): JSX.Element {
   return (
     <div className="borde panel rounded-lg border p-3">
-      <div className="texto-suave text-[10px] tracking-wide uppercase">{etiqueta}</div>
+      <div className="texto-suave text-xs tracking-wide uppercase">{etiqueta}</div>
       <div
         className="text-2xl leading-tight font-semibold tabular-nums"
         style={color === undefined ? undefined : { color }}
@@ -347,7 +347,7 @@ function FilaRegla({
 
         <div className="flex shrink-0 items-center gap-2">
           <span
-            className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1 ring-inset ${
+            className={`rounded-full px-2 py-0.5 text-xs font-semibold ring-1 ring-inset ${
               CLASES_NIVEL[regla.nivel]
             }`}
           >
@@ -356,7 +356,7 @@ function FilaRegla({
           <button
             type="button"
             onClick={onServicio}
-            className="rounded-md bg-blue-600 px-2.5 py-1 text-[11px] font-medium text-white transition hover:bg-blue-700"
+            className="rounded-lg bg-indigo-600 px-2.5 py-1 text-xs font-medium text-white transition hover:bg-indigo-700"
           >
             Registrar servicio
           </button>
@@ -381,7 +381,7 @@ function FilaRegla({
         />
       </div>
 
-      <div className="texto-suave flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px]">
+      <div className="texto-suave flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs">
         <span className="font-medium">{regla.mensaje}</span>
         {regla.dimension !== null && <span>· por {ETIQUETA_DIMENSION[regla.dimension]}</span>}
         {regla.dimensiones.length > 1 && (
@@ -425,7 +425,7 @@ function Modal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="borde panel max-h-[85vh] w-full max-w-md overflow-y-auto rounded-xl border p-5 shadow-2xl">
+      <div className="borde panel max-h-[85vh] w-full max-w-md overflow-y-auto rounded-2xl border p-5 sombra-alta">
         <div className="mb-4 flex items-center justify-between">
           <h3 className="text-sm font-semibold">{titulo}</h3>
           <button
@@ -446,8 +446,8 @@ function Modal({
 }
 
 const claseCampo =
-  'borde panel w-full rounded-md border px-2.5 py-1.5 text-sm outline-none focus:ring-2 focus:ring-blue-500/40 disabled:opacity-50';
-const claseEtiqueta = 'texto-suave mb-1 block text-[11px] font-medium';
+  'borde panel w-full rounded-lg border px-2.5 py-1.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500/40 disabled:opacity-50';
+const claseEtiqueta = 'texto-suave mb-1 block text-xs font-medium';
 
 function DialogoPlantilla({
   onCerrar,
@@ -507,7 +507,7 @@ function DialogoPlantilla({
           />
         </div>
 
-        <p className="texto-suave text-[11px]">
+        <p className="texto-suave text-xs">
           Configura uno o varios intervalos. Con más de uno, gana{' '}
           <strong>lo que ocurra primero</strong>.
         </p>
@@ -578,7 +578,7 @@ function DialogoPlantilla({
             placeholder="500"
             className={claseCampo}
           />
-          <p className="texto-suave mt-1 text-[10px]">
+          <p className="texto-suave mt-1 text-xs">
             Si lo dejas vacío se usa el 10 % del intervalo.
           </p>
         </div>
@@ -594,14 +594,14 @@ function DialogoPlantilla({
             onClick={() => {
               void guardar();
             }}
-            className="flex-1 rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-blue-700 disabled:opacity-50"
+            className="flex-1 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-indigo-700 disabled:opacity-50"
           >
             {guardando ? 'Guardando…' : 'Crear plantilla'}
           </button>
           <button
             type="button"
             onClick={onCerrar}
-            className="borde texto-suave rounded-md border px-3 py-2 text-sm transition hover:bg-black/5 dark:hover:bg-white/5"
+            className="borde texto-suave rounded-lg border px-3 py-2 text-sm transition hover:bg-black/5 dark:hover:bg-white/5"
           >
             Cancelar
           </button>
@@ -663,7 +663,7 @@ function DialogoAplicar({
               onClick={() => {
                 setSeleccion(new Set(unidades.map((u) => u.id)));
               }}
-              className="borde rounded border px-2 py-0.5 text-[11px] transition hover:bg-black/5 dark:hover:bg-white/5"
+              className="borde rounded border px-2 py-0.5 text-xs transition hover:bg-black/5 dark:hover:bg-white/5"
             >
               Todas
             </button>
@@ -672,14 +672,14 @@ function DialogoAplicar({
               onClick={() => {
                 setSeleccion(new Set());
               }}
-              className="borde rounded border px-2 py-0.5 text-[11px] transition hover:bg-black/5 dark:hover:bg-white/5"
+              className="borde rounded border px-2 py-0.5 text-xs transition hover:bg-black/5 dark:hover:bg-white/5"
             >
               Ninguna
             </button>
           </div>
         </div>
 
-        <div className="borde scroll-fino max-h-64 overflow-y-auto rounded-md border">
+        <div className="borde scroll-fino max-h-64 overflow-y-auto rounded-lg border">
           {unidades.map((u) => (
             <label
               key={u.id}
@@ -701,7 +701,7 @@ function DialogoAplicar({
           ))}
         </div>
 
-        <p className="texto-suave text-[11px]">
+        <p className="texto-suave text-xs">
           La cuenta arranca desde el odómetro actual de cada unidad, así que ninguna aparece
           vencida el primer día. Aplicarla dos veces no duplica nada.
         </p>
@@ -715,14 +715,14 @@ function DialogoAplicar({
             onClick={() => {
               void aplicar();
             }}
-            className="flex-1 rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-blue-700 disabled:opacity-50"
+            className="flex-1 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-indigo-700 disabled:opacity-50"
           >
             {guardando ? 'Aplicando…' : `Aplicar a ${String(seleccion.size)} unidades`}
           </button>
           <button
             type="button"
             onClick={onCerrar}
-            className="borde texto-suave rounded-md border px-3 py-2 text-sm transition hover:bg-black/5 dark:hover:bg-white/5"
+            className="borde texto-suave rounded-lg border px-3 py-2 text-sm transition hover:bg-black/5 dark:hover:bg-white/5"
           >
             Cancelar
           </button>
@@ -771,7 +771,7 @@ function DialogoServicio({
   return (
     <Modal titulo="Registrar servicio" onCerrar={onCerrar}>
       <div className="space-y-3">
-        <div className="borde rounded-md border p-2.5">
+        <div className="borde rounded-lg border p-2.5">
           <p className="text-sm font-medium">{regla.deviceName}</p>
           <p className="texto-suave text-xs">
             {regla.name} · {regla.mensaje}
@@ -842,7 +842,7 @@ function DialogoServicio({
           />
         </div>
 
-        <p className="texto-suave text-[11px]">
+        <p className="texto-suave text-xs">
           El odómetro se toma de la lectura actual de la unidad, y el contador de esta regla
           vuelve a empezar desde ahí.
         </p>
@@ -856,14 +856,14 @@ function DialogoServicio({
             onClick={() => {
               void guardar();
             }}
-            className="flex-1 rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-blue-700 disabled:opacity-50"
+            className="flex-1 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-indigo-700 disabled:opacity-50"
           >
             {guardando ? 'Guardando…' : 'Registrar servicio'}
           </button>
           <button
             type="button"
             onClick={onCerrar}
-            className="borde texto-suave rounded-md border px-3 py-2 text-sm transition hover:bg-black/5 dark:hover:bg-white/5"
+            className="borde texto-suave rounded-lg border px-3 py-2 text-sm transition hover:bg-black/5 dark:hover:bg-white/5"
           >
             Cancelar
           </button>

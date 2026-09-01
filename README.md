@@ -284,6 +284,15 @@ dos efectos llamaban a `setState` de forma síncrona provocando renders en
 cascada, y una función de limpieza leía `ref.current` directamente, con lo que
 podía fugar todos los marcadores del mapa que estaba desmontando.
 
+**`curl` no hace preflight de CORS, y por eso mi verificación tenía un punto
+ciego.** Borrar una geocerca desde el navegador no funcionaba, mientras la
+misma llamada desde la terminal respondía 204 sin queja. La causa:
+`@fastify/cors` solo anuncia `GET, HEAD, POST` si no se le declaran los
+métodos, así que el navegador bloqueaba `DELETE`, `PUT` y `PATCH` **antes de
+enviarlos**. El servidor nunca veía la petición y no registraba ningún error.
+Toda mi verificación había sido con curl, que va directo al método y jamás
+dispara el preflight: la clase de fallo que solo aparece en el navegador.
+
 **Ejecutar un script no es lo mismo que leerlo.** El respaldo en PowerShell
 parecía correcto y fallaba siempre: canalizar la salida de `pg_dump` hace que
 PowerShell la convierta a texto y corrompa el binario. Y la restauración
