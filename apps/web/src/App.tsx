@@ -2,20 +2,27 @@ import { useCallback, useEffect, useState } from 'react';
 import type { JSX } from 'react';
 
 import { actualizarUnidad } from './lib/api.ts';
-import { obtenerFichas, obtenerGeocercas, type Ficha, type Geocerca } from './lib/flota-api.ts';
+import {
+  obtenerFichas,
+  obtenerGeocercas,
+  type Ficha,
+  type Geocerca,
+  type PuntoHistorial,
+} from './lib/flota-api.ts';
 import { BarraFlota } from './components/BarraFlota.tsx';
 import { CentroAvisos } from './components/CentroAvisos.tsx';
 import { FichaVehiculo } from './components/FichaVehiculo.tsx';
 import { PanelComandos } from './components/PanelComandos.tsx';
 import { PanelGeocercas, type ModoDibujo } from './components/PanelGeocercas.tsx';
+import { PanelHistorial } from './components/PanelHistorial.tsx';
 import { FichaUnidad } from './components/FichaUnidad.tsx';
-import { MapaEnVivo } from './components/MapaEnVivo.tsx';
+import { CAPAS, MapaEnVivo, type CapaMapa } from './components/MapaEnVivo.tsx';
 import { PanelMantenimientos } from './components/PanelMantenimientos.tsx';
 import { PanelUnidades } from './components/PanelUnidades.tsx';
 import { useFlota } from './lib/useFlota.ts';
 import type { Categoria } from './lib/vehiculos.ts';
 
-type Vista = 'mapa' | 'mantenimientos';
+type Vista = 'mapa' | 'historial' | 'mantenimientos';
 
 /** Lee el tema aplicado por el script en linea de index.html. */
 function temaInicial(): boolean {
@@ -49,6 +56,15 @@ export function App(): JSX.Element {
   const [encuadre, setEncuadre] = useState<readonly (readonly [number, number])[] | null>(
     null,
   );
+  const [recorrido, setRecorrido] = useState<readonly (readonly [number, number])[]>([]);
+  const [capa, setCapa] = useState<CapaMapa>(() => {
+    try {
+      const guardada = localStorage.getItem('capaMapa');
+      return guardada !== null && guardada in CAPAS ? (guardada as CapaMapa) : 'calles';
+    } catch {
+      return 'calles';
+    }
+  });
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', oscuro);
@@ -151,6 +167,10 @@ export function App(): JSX.Element {
     [],
   );
 
+  const mostrarRecorrido = useCallback((puntos: readonly PuntoHistorial[]) => {
+    setRecorrido(puntos.map((p) => [p.longitude, p.latitude] as const));
+  }, []);
+
   const irAUnidad = useCallback((deviceId: number) => {
     setVista('mapa');
     setSeleccionada(deviceId);
@@ -247,6 +267,7 @@ export function App(): JSX.Element {
       <nav className="borde panel flex shrink-0 gap-1 border-b px-4" aria-label="Secciones">
         {([
           { id: 'mapa', etiqueta: 'Mapa en vivo' },
+          { id: 'historial', etiqueta: 'Historial' },
           { id: 'mantenimientos', etiqueta: 'Mantenimientos' },
         ] as const).map((t) => (
           <button
@@ -269,6 +290,35 @@ export function App(): JSX.Element {
 
       {vista === 'mantenimientos' ? (
         <PanelMantenimientos unidades={unidades} />
+      ) : vista === 'historial' ? (
+        <div className="flex min-h-0 flex-1">
+          <div className="borde w-full max-w-lg shrink-0 border-r md:w-[26rem]">
+            <PanelHistorial
+              unidades={unidades}
+              seleccionada={seleccionada}
+              onRecorrido={mostrarRecorrido}
+            />
+          </div>
+          <div className="hidden min-w-0 flex-1 md:block">
+            <MapaEnVivo
+              unidades={unidades}
+              seleccionada={seleccionada}
+              onSeleccionar={setSeleccionada}
+              onRenombrar={renombrar}
+              onCambiarIcono={cambiarIcono}
+              oscuro={oscuro}
+              mostrarNombres={false}
+              geocercas={geocercas}
+              dibujando={null}
+              onPuntoDibujado={agregarPunto}
+              puntosDibujo={[]}
+              anilloPrevio={null}
+              encuadrar={null}
+              capa={capa}
+              recorrido={recorrido}
+            />
+          </div>
+        </div>
       ) : (
       <div className="relative flex min-h-0 flex-1">
         {/* Panel lateral. En pantallas chicas se convierte en un cajon. */}
@@ -362,6 +412,8 @@ export function App(): JSX.Element {
             puntosDibujo={puntosDibujo}
             anilloPrevio={anilloPrevio}
             encuadrar={encuadre}
+            capa={capa}
+            recorrido={recorrido}
           />
 
           {/* Controles sobre el mapa */}
@@ -376,6 +428,31 @@ export function App(): JSX.Element {
             >
               Unidades ({unidades.length})
             </button>
+
+            <div className="borde panel flex overflow-hidden rounded-lg border sombra-suave">
+              {(Object.keys(CAPAS) as CapaMapa[]).map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => {
+                    setCapa(c);
+                    try {
+                      localStorage.setItem('capaMapa', c);
+                    } catch {
+                      // En modo privado no se recuerda. Aceptable.
+                    }
+                  }}
+                  aria-pressed={capa === c}
+                  className={`px-2.5 py-2 text-xs font-medium transition ${
+                    capa === c
+                      ? 'bg-indigo-600 text-white'
+                      : 'texto-suave hover:bg-black/5 dark:hover:bg-white/5'
+                  }`}
+                >
+                  {CAPAS[c].etiqueta}
+                </button>
+              ))}
+            </div>
 
             <button
               type="button"

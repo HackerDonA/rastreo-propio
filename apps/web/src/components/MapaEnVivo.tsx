@@ -37,6 +37,15 @@ import maplibregl, {
 import { useCallback, useEffect, useRef, useState, type JSX } from 'react';
 import { createPortal } from 'react-dom';
 
+import {
+  distanciaMetros,
+  posicionEn,
+  rumboEn,
+  SALTO_MAXIMO_M,
+  terminado,
+  type Coord,
+  type Trayecto,
+} from '../lib/animacion.ts';
 import type { Geocerca } from '../lib/flota-api.ts';
 import type { Unit } from '../lib/tipos.ts';
 import type { Categoria } from '../lib/vehiculos.ts';
@@ -75,6 +84,46 @@ function cerrarAnillo(
   return puntos;
 }
 
+/**
+ * Capas de mapa disponibles.
+ *
+ * Todas gratis y sin API key. El satelite viene de EOX (Sentinel-2 cloudless,
+ * CC BY 4.0), que es imagen libre de verdad: Google Maps y Mapbox cobran por
+ * carga y estan descartados en el ADR 0003.
+ */
+export const CAPAS = {
+  calles: { etiqueta: 'Calles', estilo: ESTILO_CLARO },
+  oscuro: { etiqueta: 'Oscuro', estilo: ESTILO_OSCURO },
+  claro: { etiqueta: 'Minimalista', estilo: 'https://tiles.openfreemap.org/styles/positron' },
+  satelite: { etiqueta: 'Satelite', estilo: 'satelite' },
+} as const;
+
+export type CapaMapa = keyof typeof CAPAS;
+
+/**
+ * Estilo de satelite construido a mano.
+ *
+ * OpenFreeMap no sirve imagen aerea, asi que se arma un estilo raster minimo
+ * apuntando a EOX. La atribucion es obligatoria por licencia y va incluida.
+ */
+const ESTILO_SATELITE = {
+  version: 8 as const,
+  sources: {
+    eox: {
+      type: 'raster' as const,
+      tiles: ['https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2020_3857/default/g/{z}/{y}/{x}.jpg'],
+      tileSize: 256,
+      maxzoom: 16,
+      attribution:
+        'Sentinel-2 cloudless por <a href="https://s2maps.eu">EOX IT Services</a> (CC BY 4.0)',
+    },
+  },
+  layers: [{ id: 'eox', type: 'raster' as const, source: 'eox' }],
+};
+
+/** Cuantas posiciones se conservan para dibujar la estela. */
+const LARGO_ESTELA = 40;
+
 /** Debajo de este zoom las burbujas se encimarian; se muestran compactas. */
 const ZOOM_COMPACTO = 11.5;
 
@@ -99,6 +148,9 @@ interface Props {
   readonly anilloPrevio: readonly (readonly [number, number])[] | null;
   /** Anillo al que encuadrar la vista. Cambiar la referencia dispara el ajuste. */
   readonly encuadrar: readonly (readonly [number, number])[] | null;
+  readonly capa: CapaMapa;
+  /** Recorrido historico a dibujar. Vacio = no se muestra. */
+  readonly recorrido: readonly (readonly [number, number])[];
 }
 
 export function MapaEnVivo({
@@ -115,6 +167,8 @@ export function MapaEnVivo({
   puntosDibujo,
   anilloPrevio,
   encuadrar,
+  capa,
+  recorrido,
 }: Props): JSX.Element {
   const contenedorRef = useRef<HTMLDivElement | null>(null);
   const mapaRef = useRef<MapaLibre | null>(null);
@@ -131,6 +185,17 @@ export function MapaEnVivo({
     dibujandoRef.current = dibujando;
     onPuntoRef.current = onPuntoDibujado;
   }, [dibujando, onPuntoDibujado]);
+
+  /**
+   * Trayecto en curso de cada unidad. El bucle de animacion lo lee para saber
+   * donde dibujar el marcador en cada cuadro.
+   */
+  const trayectosRef = useRef(new Map<number, Trayecto>());
+  /** Rumbo de origen y destino, para girar por el lado corto. */
+  const rumbosRef = useRef(new Map<number, { desde: number; hasta: number }>());
+  /** Ultimas posiciones de cada unidad, para dibujar la estela. */
+  const estelasRef = useRef(new Map<number, Coord[]>());
+  const rafRef = useRef<number | null>(null);
 
   const [nodos, setNodos] = useState<readonly { id: number; el: HTMLDivElement }[]>([]);
   const [zoomActual, setZoomActual] = useState(ZOOM);
@@ -166,6 +231,18 @@ export function MapaEnVivo({
     const instalarGeocercas = (): void => {
       if (mapa.getSource('geocercas') === undefined) {
         mapa.addSource('geocercas', {
+          type: 'geojson',
+          data: { type: 'FeatureCollection', features: [] },
+        });
+      }
+      if (mapa.getSource('recorrido') === undefined) {
+        mapa.addSource('recorrido', {
+          type: 'geojson',
+          data: { type: 'FeatureCollection', features: [] },
+        });
+      }
+      if (mapa.getSource('estela') === undefined) {
+        mapa.addSource('estela', {
           type: 'geojson',
           data: { type: 'FeatureCollection', features: [] },
         });
@@ -209,6 +286,39 @@ export function MapaEnVivo({
             'text-color': '#7c3aed',
             'text-halo-color': oscuro ? '#0f172a' : '#ffffff',
             'text-halo-width': 1.8,
+          },
+        });
+      }
+
+      // Recorrido historico. Va debajo de todo lo demas y con un trazo mas
+      // grueso: es el protagonista cuando se consulta el historial.
+      if (mapa.getLayer('recorrido-linea') === undefined) {
+        mapa.addLayer({
+          id: 'recorrido-linea',
+          type: 'line',
+          source: 'recorrido',
+          layout: { 'line-cap': 'round', 'line-join': 'round' },
+          paint: {
+            'line-color': '#7c3aed',
+            'line-width': 4,
+            'line-opacity': 0.85,
+          },
+        });
+      }
+
+      // Estela: por donde acaba de pasar la unidad seleccionada. Se degrada
+      // hacia el final para que se lea la direccion sin necesidad de flechas.
+      if (mapa.getLayer('estela-linea') === undefined) {
+        mapa.addLayer({
+          id: 'estela-linea',
+          type: 'line',
+          source: 'estela',
+          layout: { 'line-cap': 'round', 'line-join': 'round' },
+          paint: {
+            'line-color': '#4f46e5',
+            'line-width': 3,
+            'line-opacity': 0.55,
+            'line-blur': 0.5,
           },
         });
       }
@@ -279,12 +389,21 @@ export function MapaEnVivo({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // --- Cambio de tema -------------------------------------------------------
+  // --- Cambio de capa o de tema ---------------------------------------------
   useEffect(() => {
+    const mapa = mapaRef.current;
+    if (mapa === null) return;
+
     // Los marcadores son DOM, no capas del estilo: setStyle no se los lleva por
-    // delante, asi que no hay que reinstalarlos como si fueran capas.
-    mapaRef.current?.setStyle(oscuro ? ESTILO_OSCURO : ESTILO_CLARO);
-  }, [oscuro]);
+    // delante, asi que no hay que reinstalarlos como si fueran capas. Las capas
+    // de geocercas si, y de eso se encarga el evento styledata.
+    if (capa === 'satelite') {
+      mapa.setStyle(ESTILO_SATELITE);
+      return;
+    }
+    // La capa "calles" sigue al tema; las demas son explicitas.
+    mapa.setStyle(capa === 'calles' ? (oscuro ? ESTILO_OSCURO : ESTILO_CLARO) : CAPAS[capa].estilo);
+  }, [oscuro, capa]);
 
   // --- Altas, bajas y movimiento de marcadores ------------------------------
   useEffect(() => {
@@ -300,6 +419,8 @@ export function MapaEnVivo({
       if (posicion === null) continue;
       vistos.add(unidad.id);
 
+      const destino: Coord = [posicion.longitude, posicion.latitude];
+
       let entrada = marcadores.get(unidad.id);
       if (entrada === undefined) {
         const el = document.createElement('div');
@@ -313,14 +434,50 @@ export function MapaEnVivo({
           // todo, quede centrada exactamente sobre la coordenada.
           offset: [0, 12],
         })
-          .setLngLat([posicion.longitude, posicion.latitude])
+          .setLngLat([destino[0], destino[1]])
           .addTo(mapa);
 
         entrada = { marker, el };
         marcadores.set(unidad.id, entrada);
+        rumbosRef.current.set(unidad.id, {
+          desde: posicion.course,
+          hasta: posicion.course,
+        });
+        estelasRef.current.set(unidad.id, [destino]);
         cambioElConjunto = true;
       } else {
-        entrada.marker.setLngLat([posicion.longitude, posicion.latitude]);
+        const actual = entrada.marker.getLngLat();
+        const origen: Coord = [actual.lng, actual.lat];
+        const salto = distanciaMetros(origen, destino);
+
+        if (salto > SALTO_MAXIMO_M) {
+          // Un salto enorme no es el vehiculo moviendose: es el GPS
+          // corrigiendo, o una unidad que reaparece. Animarlo produciria un
+          // deslizamiento falso a traves de media ciudad.
+          entrada.marker.setLngLat([destino[0], destino[1]]);
+          trayectosRef.current.delete(unidad.id);
+          estelasRef.current.set(unidad.id, [destino]);
+        } else if (salto > 0.5) {
+          trayectosRef.current.set(unidad.id, {
+            desde: origen,
+            hasta: destino,
+            inicio: performance.now(),
+            // Un pelo mas que la ventana del relay: si la animacion terminara
+            // antes, el marcador se quedaria quieto esperando el siguiente
+            // mensaje y volveria el efecto entrecortado.
+            duracion: 900,
+          });
+          const rumboPrevio = rumbosRef.current.get(unidad.id)?.hasta ?? posicion.course;
+          rumbosRef.current.set(unidad.id, {
+            desde: rumboPrevio,
+            hasta: posicion.course,
+          });
+
+          const estela = estelasRef.current.get(unidad.id) ?? [];
+          estela.push(destino);
+          if (estela.length > LARGO_ESTELA) estela.shift();
+          estelasRef.current.set(unidad.id, estela);
+        }
       }
     }
 
@@ -328,6 +485,9 @@ export function MapaEnVivo({
       if (!vistos.has(id)) {
         marker.remove();
         marcadores.delete(id);
+        trayectosRef.current.delete(id);
+        rumbosRef.current.delete(id);
+        estelasRef.current.delete(id);
         cambioElConjunto = true;
       }
     }
@@ -421,6 +581,128 @@ export function MapaEnVivo({
     // mapa perseguiria a la unidad y no dejaria mover la vista.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [seleccionada]);
+
+  // --- Bucle de animacion ---------------------------------------------------
+  //
+  // Un unico requestAnimationFrame para TODA la flota. Un temporizador por
+  // marcador seria mucho mas caro y ademas quedarian desincronizados entre si.
+  useEffect(() => {
+    if (!mapaListo) return;
+
+    const paso = (): void => {
+      const ahora = performance.now();
+      const trayectos = trayectosRef.current;
+
+      for (const [id, entrada] of marcadoresRef.current) {
+        const trayecto = trayectos.get(id);
+        const rumbo = rumbosRef.current.get(id);
+
+        if (trayecto !== undefined) {
+          const p = posicionEn(trayecto, ahora);
+          entrada.marker.setLngLat([p[0], p[1]]);
+          if (terminado(trayecto, ahora)) trayectos.delete(id);
+        }
+
+        // El giro lo aplica SIEMPRE el bucle, incluso sin trayecto activo. Si
+        // lo pusiera React como estilo en linea, cada render sobrescribiria la
+        // rotacion a media animacion y la flecha daria tirones.
+        if (rumbo === undefined) continue;
+        const flecha = entrada.el.querySelector<HTMLElement>('[data-rumbo]');
+        if (flecha === null) continue;
+
+        const avance =
+          trayecto === undefined
+            ? 1
+            : Math.min((ahora - trayecto.inicio) / trayecto.duracion, 1);
+        // Toma el lado corto: de 350 a 10 grados son 20 hacia delante, no 340
+        // hacia atras. Sin esto el icono da un trompo cada vez que cruza el norte.
+        flecha.style.transform = `rotate(${String(rumboEn(rumbo.desde, rumbo.hasta, avance))}deg)`;
+      }
+
+      rafRef.current = requestAnimationFrame(paso);
+    };
+
+    rafRef.current = requestAnimationFrame(paso);
+    return () => {
+      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    };
+  }, [mapaListo]);
+
+  // --- Estela de la unidad seleccionada -------------------------------------
+  //
+  // Solo la seleccionada: dibujar la de las diez a la vez llena el mapa de
+  // lineas y deja de aportar informacion.
+  useEffect(() => {
+    const mapa = mapaRef.current;
+    if (mapa === null || !mapaListo) return;
+    const fuente = mapa.getSource<GeoJSONSource>('estela');
+    if (fuente === undefined) return;
+
+    const puntos = seleccionada === null ? undefined : estelasRef.current.get(seleccionada);
+    if (puntos === undefined || puntos.length < 2) {
+      fuente.setData({ type: 'FeatureCollection', features: [] });
+      return;
+    }
+
+    fuente.setData({
+      type: 'FeatureCollection',
+      features: [
+        {
+          type: 'Feature',
+          geometry: { type: 'LineString', coordinates: puntos.map((p) => [p[0], p[1]]) },
+          properties: {},
+        },
+      ],
+    });
+  }, [seleccionada, unidades, mapaListo]);
+
+  // --- Recorrido historico --------------------------------------------------
+  useEffect(() => {
+    const mapa = mapaRef.current;
+    if (mapa === null || !mapaListo) return;
+    const fuente = mapa.getSource<GeoJSONSource>('recorrido');
+    if (fuente === undefined) return;
+
+    if (recorrido.length < 2) {
+      fuente.setData({ type: 'FeatureCollection', features: [] });
+      return;
+    }
+
+    fuente.setData({
+      type: 'FeatureCollection',
+      features: [
+        {
+          type: 'Feature',
+          geometry: {
+            type: 'LineString',
+            coordinates: recorrido.map((p) => [p[0], p[1]]),
+          },
+          properties: {},
+        },
+      ],
+    });
+
+    // Encuadrar en el recorrido recien cargado: consultar un historial y tener
+    // que buscarlo a mano por el mapa no tendria sentido.
+    let oeste = Infinity;
+    let sur = Infinity;
+    let este = -Infinity;
+    let norte = -Infinity;
+    for (const [lon, lat] of recorrido) {
+      if (lon < oeste) oeste = lon;
+      if (lon > este) este = lon;
+      if (lat < sur) sur = lat;
+      if (lat > norte) norte = lat;
+    }
+    mapa.fitBounds(
+      [
+        [oeste, sur],
+        [este, norte],
+      ],
+      { padding: 60, duration: 700 },
+    );
+  }, [recorrido, mapaListo]);
 
   // --- Encuadrar en una zona ------------------------------------------------
   useEffect(() => {
