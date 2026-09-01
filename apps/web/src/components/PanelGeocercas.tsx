@@ -86,6 +86,9 @@ export function PanelGeocercas({
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [editando, setEditando] = useState<Geocerca | null>(null);
+  /** Zona pendiente de confirmar borrado. Borrar sin preguntar es fácil de
+   *  hacer sin querer, y una zona con varias unidades cuesta rehacerla. */
+  const [porBorrar, setPorBorrar] = useState<Geocerca | null>(null);
 
   const geometria = geometriaDesdePuntos(modo, puntos);
 
@@ -150,8 +153,8 @@ export function PanelGeocercas({
       <div className="borde shrink-0 border-b px-4 py-3">
         {modo === null ? (
           <>
-            <p className="texto-suave mb-2 text-[11px]">
-              Dibuja una zona sobre el mapa para que te avise cuando una unidad entre o salga.
+            <p className="texto-suave mb-2 text-xs">
+              Marca un área en el mapa y te avisamos cuando una unidad entre o salga.
             </p>
             <div className="flex gap-1.5">
               <button
@@ -160,9 +163,9 @@ export function PanelGeocercas({
                   onCambiarModo('circulo');
                   onLimpiarPuntos();
                 }}
-                className="borde flex-1 rounded-md border px-2 py-1.5 text-xs font-medium transition hover:bg-black/5 dark:hover:bg-white/5"
+                className="borde flex-1 rounded-lg border px-2 py-1.5 text-xs font-medium transition hover:bg-black/5 dark:hover:bg-white/5"
               >
-                ◯ Círculo
+                Círculo
               </button>
               <button
                 type="button"
@@ -170,15 +173,15 @@ export function PanelGeocercas({
                   onCambiarModo('poligono');
                   onLimpiarPuntos();
                 }}
-                className="borde flex-1 rounded-md border px-2 py-1.5 text-xs font-medium transition hover:bg-black/5 dark:hover:bg-white/5"
+                className="borde flex-1 rounded-lg border px-2 py-1.5 text-xs font-medium transition hover:bg-black/5 dark:hover:bg-white/5"
               >
-                ⬠ Polígono
+                Polígono
               </button>
             </div>
           </>
         ) : (
           <div className="space-y-2">
-            <div className="rounded-md bg-amber-500/12 px-2.5 py-2 text-[11px] ring-1 ring-amber-500/25 ring-inset">
+            <div className="rounded-lg bg-amber-500/12 px-2.5 py-2 text-xs ring-1 ring-amber-500/25 ring-inset">
               {modo === 'circulo' ? (
                 <span>
                   {puntos.length === 0
@@ -203,21 +206,21 @@ export function PanelGeocercas({
                 setNombre(e.target.value);
               }}
               placeholder="Nombre de la zona (ej. Patio Norte)"
-              className="borde panel w-full rounded-md border px-2 py-1.5 text-xs outline-none focus:ring-2 focus:ring-blue-500/40"
+              className="borde panel w-full rounded-lg border px-2 py-1.5 text-xs outline-none focus:ring-2 focus:ring-indigo-500/40"
             />
 
             <div>
-              <p className="texto-suave mb-1 text-[10px] font-medium tracking-wide uppercase">
+              <p className="texto-suave mb-1 text-xs font-medium tracking-wide uppercase">
                 Unidades que vigila ({seleccion.size})
               </p>
               {/* Sin al menos una unidad la geocerca existe, se dibuja, y NO
                   genera ni un solo evento. Es la confusión más común. */}
               {seleccion.size === 0 && (
-                <p className="mb-1 text-[10px] text-amber-600 dark:text-amber-400">
+                <p className="mb-1 text-xs text-amber-600 dark:text-amber-400">
                   Sin unidades no te va a avisar de nada.
                 </p>
               )}
-              <div className="borde scroll-fino max-h-32 overflow-y-auto rounded-md border">
+              <div className="borde scroll-fino max-h-32 overflow-y-auto rounded-lg border">
                 {unidades.map((u) => (
                   <label
                     key={u.id}
@@ -243,14 +246,14 @@ export function PanelGeocercas({
                 onClick={() => {
                   setSeleccion(new Set(unidades.map((u) => u.id)));
                 }}
-                className="texto-suave mt-1 text-[10px] underline"
+                className="texto-suave mt-1 text-xs underline"
               >
                 Seleccionar todas
               </button>
             </div>
 
             {error !== null && (
-              <p className="text-[11px] text-red-600 dark:text-red-400">{error}</p>
+              <p className="text-xs text-red-600 dark:text-red-400">{error}</p>
             )}
 
             <div className="flex gap-1.5">
@@ -260,7 +263,7 @@ export function PanelGeocercas({
                 onClick={() => {
                   void guardar();
                 }}
-                className="flex-1 rounded-md bg-blue-600 px-2 py-1.5 text-xs font-medium text-white transition hover:bg-blue-700 disabled:opacity-40"
+                className="flex-1 rounded-lg bg-indigo-600 px-2 py-1.5 text-xs font-medium text-white transition hover:bg-indigo-700 disabled:opacity-40"
               >
                 {guardando ? 'Guardando…' : 'Guardar zona'}
               </button>
@@ -269,7 +272,7 @@ export function PanelGeocercas({
                   type="button"
                   onClick={onQuitarUltimoPunto}
                   title="Deshacer el último punto"
-                  className="borde texto-suave rounded-md border px-2 py-1.5 text-xs transition hover:bg-black/5 dark:hover:bg-white/5"
+                  className="borde texto-suave rounded-lg border px-2 py-1.5 text-xs transition hover:bg-black/5 dark:hover:bg-white/5"
                 >
                   ↶
                 </button>
@@ -277,7 +280,7 @@ export function PanelGeocercas({
               <button
                 type="button"
                 onClick={cancelar}
-                className="borde texto-suave rounded-md border px-2 py-1.5 text-xs transition hover:bg-black/5 dark:hover:bg-white/5"
+                className="borde texto-suave rounded-lg border px-2 py-1.5 text-xs transition hover:bg-black/5 dark:hover:bg-white/5"
               >
                 Cancelar
               </button>
@@ -286,11 +289,59 @@ export function PanelGeocercas({
         )}
       </div>
 
+      {/* El error se muestra AQUI, fuera del panel de dibujo. Antes vivía
+          dentro de él, así que un fallo al borrar desde la lista no se veía
+          en ninguna parte. */}
+      {error !== null && modo === null && (
+        <div className="borde shrink-0 border-b bg-red-500/10 px-4 py-2 text-xs text-red-700 dark:text-red-400">
+          {error}
+        </div>
+      )}
+
+      {/* ---------- Confirmación de borrado ---------- */}
+      {porBorrar !== null && (
+        <div className="borde shrink-0 border-b bg-red-500/8 px-4 py-3">
+          <p className="mb-1 text-sm font-medium">¿Borrar «{porBorrar.name}»?</p>
+          <p className="texto-suave mb-2 text-xs">
+            Dejarás de recibir avisos de entrada y salida de esta zona.
+          </p>
+          <div className="flex gap-1.5">
+            <button
+              type="button"
+              onClick={() => {
+                const id = porBorrar.id;
+                setPorBorrar(null);
+                setError(null);
+                void borrarGeocerca(id)
+                  .then(onRecargar)
+                  .catch((causa: unknown) => {
+                    setError(
+                      causa instanceof Error ? causa.message : 'No se pudo borrar la zona',
+                    );
+                  });
+              }}
+              className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-red-700"
+            >
+              Sí, borrar
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setPorBorrar(null);
+              }}
+              className="borde texto-suave rounded-lg border px-3 py-1.5 text-xs transition hover:bg-black/5 dark:hover:bg-white/5"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* ---------- Lista ---------- */}
       <div className="scroll-fino min-h-0 flex-1 overflow-y-auto">
         {geocercas.length === 0 ? (
           <div className="texto-suave px-4 py-10 text-center text-sm">
-            <p className="mb-1 font-medium">Todavía no hay zonas</p>
+            <p className="mb-1 font-medium">Aún no tienes zonas</p>
             <p className="text-xs">
               Una geocerca te avisa cuando un vehículo entra o sale de un área: un patio,
               una ruta, la casa de un cliente.
@@ -309,7 +360,7 @@ export function PanelGeocercas({
                     className="min-w-0 text-left"
                   >
                     <span className="block truncate text-sm font-medium">{g.name}</span>
-                    <span className="texto-suave text-[11px]">
+                    <span className="texto-suave text-xs">
                       {g.geometria.tipo === 'circulo'
                         ? `Círculo · ${String(Math.round(g.geometria.radio))} m`
                         : `Polígono · ${String(g.geometria.puntos.length)} esquinas`}
@@ -318,9 +369,7 @@ export function PanelGeocercas({
                   <button
                     type="button"
                     onClick={() => {
-                      void borrarGeocerca(g.id).then(onRecargar).catch(() => {
-                        setError('No se pudo borrar la zona');
-                      });
+                      setPorBorrar(g);
                     }}
                     aria-label={`Borrar ${g.name}`}
                     className="texto-suave shrink-0 rounded p-1 transition hover:bg-black/5 dark:hover:bg-white/10"
@@ -331,7 +380,7 @@ export function PanelGeocercas({
                   </button>
                 </div>
                 <p
-                  className={`text-[11px] ${
+                  className={`text-xs ${
                     g.deviceIds.length === 0
                       ? 'text-amber-600 dark:text-amber-400'
                       : 'texto-suave'
