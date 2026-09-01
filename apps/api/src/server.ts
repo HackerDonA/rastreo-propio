@@ -86,6 +86,15 @@ async function main(): Promise<void> {
   await app.register(cors, {
     origin: config.CORS_ORIGIN.split(',').map((o) => o.trim()),
     credentials: true,
+    // Hay que declarar los metodos EXPLICITAMENTE. Por omision @fastify/cors
+    // solo anuncia GET, HEAD y POST en el preflight, asi que el navegador
+    // bloquea PATCH, PUT y DELETE antes siquiera de enviarlos.
+    //
+    // El fallo es especialmente traicionero porque curl NO hace preflight: la
+    // API responde 204 perfectamente desde la terminal mientras el navegador
+    // no consigue borrar nada, y sin un error del lado del servidor.
+    methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
   });
   await app.register(websocket);
 
