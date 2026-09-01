@@ -19,10 +19,12 @@ import { WebSocket } from 'ws';
 
 import { config } from '../config.ts';
 import type { AppLogger } from '../lib/logger.ts';
+import { describirEvento, severidadDe } from '../modules/events/describe.ts';
 import type { TraccarClient } from './client.ts';
 import { buildUnits } from './mapper.ts';
 import {
   traccarSocketMessageSchema,
+  type FleetEvent,
   type ServerMessage,
   type TraccarDevice,
   type TraccarPosition,
@@ -47,6 +49,12 @@ export class TraccarRelay {
 
   /** Catalogo de unidades, para poder construir el objeto completo al emitir. */
   private devices = new Map<number, TraccarDevice>();
+
+  /**
+   * Nombres de geocerca, para redactar "salio de Patio Norte" en vez de
+   * "salio de la geocerca 7". Se refresca desde las rutas.
+   */
+  private geofenceNames = new Map<number, string>();
 
   private backoffMs = INITIAL_BACKOFF_MS;
   private reconnectTimer: NodeJS.Timeout | null = null;
@@ -98,6 +106,11 @@ export class TraccarRelay {
    */
   public upsertDevice(device: TraccarDevice): void {
     this.devices.set(device.id, device);
+  }
+
+  /** Refresca los nombres de geocerca usados al redactar los eventos. */
+  public setGeofenceNames(nombres: ReadonlyMap<number, string>): void {
+    this.geofenceNames = new Map(nombres);
   }
 
   // --------------------------------------------------------------------------
@@ -200,6 +213,44 @@ export class TraccarRelay {
 
     for (const position of parsed.data.positions ?? []) {
       this.pending.set(position.deviceId, position);
+    }
+
+    // Los eventos NO se agrupan como las posiciones. Una posicion nueva
+    // reemplaza a la anterior sin perder nada; un evento perdido es un evento
+    // perdido, y ademas son raros: no hay nada que agrupar.
+    const eventos = parsed.data.events ?? [];
+    if (eventos.length > 0) {
+      const traducidos: FleetEvent[] = eventos.map((e) => {
+        const nombre = this.devices.get(e.deviceId)?.name ?? `Unidad ${String(e.deviceId)}`;
+        return {
+          id: e.id,
+          type: e.type,
+          eventTime: e.eventTime,
+          deviceId: e.deviceId,
+          deviceName: nombre,
+          geofenceId: e.geofenceId ?? null,
+          message: describirEvento(e, {
+            deviceName: nombre,
+            geofenceName:
+              e.geofenceId == null ? undefined : this.geofenceNames.get(e.geofenceId),
+          }),
+          severity: severidadDe(e),
+          attributes: e.attributes,
+        };
+      });
+
+      for (const evento of traducidos) {
+        // Los eventos importantes quedan tambien en el log del servidor, para
+        // poder revisarlos sin abrir el frontend.
+        if (evento.severity !== 'info') {
+          this.logger.warn(
+            { tipo: evento.type, deviceId: evento.deviceId },
+            `Evento · ${evento.message}`,
+          );
+        }
+      }
+
+      this.broadcast({ type: 'events', events: traducidos });
     }
   }
 

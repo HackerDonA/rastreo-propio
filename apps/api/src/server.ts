@@ -14,7 +14,10 @@ import { config } from './config.ts';
 import { closePool, pool } from './db.ts';
 import { migrar } from './migrate.ts';
 import { MaintenanceJob } from './modules/maintenance/job.ts';
+import { asegurarNotificacionWeb } from './modules/events/bootstrap.ts';
+import { registerGeofenceRoutes } from './modules/geofences/routes.ts';
 import { registerMaintenanceRoutes } from './modules/maintenance/routes.ts';
+import { registerVehicleRoutes } from './modules/vehicles/routes.ts';
 import { registerFleetRoutes } from './routes/fleet.ts';
 import { registerUnitRoutes } from './routes/units.ts';
 import { TraccarClient, TraccarError } from './traccar/client.ts';
@@ -113,6 +116,8 @@ async function main(): Promise<void> {
   registerUnitRoutes(app, client, relay);
   registerFleetRoutes(app, client);
   registerMaintenanceRoutes(app, client);
+  registerGeofenceRoutes(app, client);
+  registerVehicleRoutes(app);
 
   /** WebSocket propio hacia el navegador. */
   app.get('/ws', { websocket: true }, (socket) => {
@@ -139,6 +144,12 @@ async function main(): Promise<void> {
   // el primer mensaje del WebSocket ya pueda construir unidades completas.
   try {
     relay.setDevices(await client.getDevices());
+    const geocercas = await client.getGeofences();
+    relay.setGeofenceNames(new Map(geocercas.map((g) => [g.id, g.name])));
+
+    // Sin esto, Traccar genera los eventos pero no los empuja al WebSocket, y
+    // el frontend nunca recibe un aviso en vivo.
+    await asegurarNotificacionWeb(client, app.log);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     app.log.warn({ err: message }, 'No se pudo cargar el catalogo inicial de unidades');

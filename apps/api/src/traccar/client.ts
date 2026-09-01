@@ -17,11 +17,16 @@ import { z } from 'zod';
 
 import { config } from '../config.ts';
 import type { AppLogger } from '../lib/logger.ts';
+import { notificationSchema } from '../modules/events/bootstrap.ts';
 import {
   traccarDeviceSchema,
+  traccarEventSchema,
+  traccarGeofenceSchema,
   traccarPositionSchema,
   traccarTripSchema,
   type TraccarDevice,
+  type TraccarEvent,
+  type TraccarGeofence,
   type TraccarPosition,
 } from './types.ts';
 
@@ -94,6 +99,42 @@ export class TraccarClient {
       throw new TraccarError(`Respuesta inesperada de Traccar en ${path}`, 502);
     }
     return parsed.data;
+  }
+
+  /**
+   * Peticion que no devuelve cuerpo (DELETE, y los POST de /permissions).
+   *
+   * Va aparte de `request` porque Traccar responde 204 sin JSON, y llamar a
+   * `.json()` sobre eso lanza. Separarlo evita un caso especial dentro del
+   * camino normal.
+   */
+  private async requestNoContent(
+    path: string,
+    method: 'POST' | 'DELETE',
+    body?: unknown,
+  ): Promise<void> {
+    let response: Response;
+    try {
+      response = await fetch(new URL(`${this.baseUrl}/api${path}`), {
+        method,
+        headers: {
+          Authorization: `Bearer ${this.token}`,
+          ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
+        },
+        ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+        signal: AbortSignal.timeout(20_000),
+      });
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : String(cause);
+      throw new TraccarError(`No se pudo contactar a Traccar: ${message}`, 502);
+    }
+
+    if (!response.ok) {
+      throw new TraccarError(
+        `Traccar respondio ${response.status} en ${method} ${path}`,
+        response.status === 401 ? 401 : 502,
+      );
+    }
   }
 
   /**
@@ -178,6 +219,135 @@ export class TraccarClient {
       method: 'PUT',
       body: device,
     });
+  }
+
+  // --- Geocercas ------------------------------------------------------------
+  //
+  // Traccar ya implementa geocercas y genera los eventos de entrada y salida.
+  // Reimplementarlas aqui seria repetir trabajo hecho y, peor, tener dos
+  // definiciones de la misma zona que se pueden desincronizar.
+  // Ver docs/adr/0001-motor-traccar.md.
+
+  public async getGeofences(): Promise<readonly TraccarGeofence[]> {
+    return this.request('/geofences', z.array(traccarGeofenceSchema));
+  }
+
+  public async createGeofence(datos: {
+    name: string;
+    description?: string | undefined;
+    area: string;
+  }): Promise<TraccarGeofence> {
+    return this.request('/geofences', traccarGeofenceSchema, undefined, {
+      method: 'POST',
+      body: { name: datos.name, description: datos.description ?? '', area: datos.area },
+    });
+  }
+
+  public async updateGeofence(
+    id: number,
+    geofence: Record<string, unknown>,
+  ): Promise<TraccarGeofence> {
+    return this.request(`/geofences/${String(id)}`, traccarGeofenceSchema, undefined, {
+      method: 'PUT',
+      body: geofence,
+    });
+  }
+
+  public async getRawGeofence(id: number): Promise<Record<string, unknown>> {
+    return this.request(`/geofences/${String(id)}`, z.record(z.string(), z.unknown()));
+  }
+
+  public async deleteGeofence(id: number): Promise<void> {
+    await this.requestNoContent(`/geofences/${String(id)}`, 'DELETE');
+  }
+
+  /**
+   * Vincula o desvincula una geocerca de una unidad.
+   *
+   * En Traccar las geocercas no se aplican solas: hay que crear un permiso que
+   * une geofenceId con deviceId. Sin ese vinculo la geocerca existe, se dibuja
+   * en el mapa, y NO genera ni un solo evento. Es la causa numero uno de
+   * "cree la geocerca y no me avisa nada".
+   */
+  public async linkGeofence(deviceId: number, geofenceId: number): Promise<void> {
+    await this.requestNoContent('/permissions', 'POST', { deviceId, geofenceId });
+  }
+
+  public async unlinkGeofence(deviceId: number, geofenceId: number): Promise<void> {
+    await this.requestNoContent('/permissions', 'DELETE', { deviceId, geofenceId });
+  }
+
+  /**
+   * Geocercas vinculadas a una unidad.
+   *
+   * `GET /api/permissions` exige exactamente dos parametros `*Id`, y admite 0
+   * en un lado con el significado de "cualquiera". Asi que `deviceId=N` mas
+   * `geofenceId=0` es "todas las geocercas de esta unidad".
+   */
+  public async getLinkedGeofenceIds(deviceId: number): Promise<number[]> {
+    // OJO CON EL NOMBRE DEL CAMPO: este endpoint devuelve las columnas de la
+    // base tal cual, en MINUSCULAS ({"deviceid":1,"geofenceid":1}), a
+    // diferencia del resto de la API de Traccar, que usa camelCase. Esperar
+    // `geofenceId` hace que Zod lo descarte y la geocerca aparezca sin
+    // unidades vinculadas, sin ningun error.
+    //
+    // Se aceptan ambas grafias por si lo normalizan en una version futura.
+    const permisos = await this.request(
+      `/permissions?deviceId=${String(deviceId)}&geofenceId=0`,
+      z.array(
+        z.object({
+          geofenceid: z.number().int().optional(),
+          geofenceId: z.number().int().optional(),
+        }),
+      ),
+    );
+    return permisos
+      .map((p) => p.geofenceid ?? p.geofenceId)
+      .filter((id): id is number => id !== undefined);
+  }
+
+  // --- Notificaciones -------------------------------------------------------
+  //
+  // Traccar solo empuja eventos por el WebSocket si existe una Notification
+  // con el canal 'web'. Ver modules/events/bootstrap.ts.
+
+  public async getNotifications(): Promise<readonly z.infer<typeof notificationSchema>[]> {
+    return this.request('/notifications', z.array(notificationSchema));
+  }
+
+  public async createNotification(datos: {
+    type: string;
+    always: boolean;
+    notificators: string;
+    description?: string;
+    attributes?: Record<string, unknown>;
+  }): Promise<z.infer<typeof notificationSchema>> {
+    return this.request('/notifications', notificationSchema, undefined, {
+      method: 'POST',
+      body: datos,
+    });
+  }
+
+  // --- Eventos --------------------------------------------------------------
+
+  /** Eventos en un rango. `types` vacio significa todos. */
+  public async getEvents(
+    from: string,
+    to: string,
+    opciones: { deviceId?: number | undefined; types?: readonly string[] | undefined } = {},
+  ): Promise<readonly TraccarEvent[]> {
+    const params = new URLSearchParams({ from, to });
+    if (opciones.deviceId !== undefined) params.set('deviceId', String(opciones.deviceId));
+    // Traccar espera el parametro repetido, no una lista separada por comas.
+    for (const t of opciones.types ?? []) params.append('type', t);
+    // Sin ningun tipo, Traccar devuelve vacio en vez de todo; 'allEvents' es
+    // su comodin documentado.
+    if ((opciones.types ?? []).length === 0) params.append('type', 'allEvents');
+
+    return this.request(
+      `/reports/events?${params.toString()}`,
+      z.array(traccarEventSchema),
+    );
   }
 
   /** Viajes detectados por Traccar en un rango de fechas. */

@@ -51,11 +51,36 @@ export const traccarPositionSchema = z.object({
 
 export type TraccarPosition = z.infer<typeof traccarPositionSchema>;
 
+export const traccarGeofenceSchema = z.object({
+  id: z.number().int(),
+  name: z.string(),
+  description: z.string().nullable().optional(),
+  /** Geometria en WKT. OJO: Traccar escribe LATITUD primero. */
+  area: z.string(),
+  calendarId: z.number().int().nullable().optional(),
+  attributes: z.record(z.string(), z.unknown()).default({}),
+});
+
+export type TraccarGeofence = z.infer<typeof traccarGeofenceSchema>;
+
+export const traccarEventSchema = z.object({
+  id: z.number().int(),
+  type: z.string(),
+  eventTime: z.string(),
+  deviceId: z.number().int(),
+  positionId: z.number().int().nullable().optional(),
+  geofenceId: z.number().int().nullable().optional(),
+  maintenanceId: z.number().int().nullable().optional(),
+  attributes: z.record(z.string(), z.unknown()).default({}),
+});
+
+export type TraccarEvent = z.infer<typeof traccarEventSchema>;
+
 /** Mensaje del WebSocket de Traccar. Los tres campos son opcionales. */
 export const traccarSocketMessageSchema = z.object({
   devices: z.array(traccarDeviceSchema).optional(),
   positions: z.array(traccarPositionSchema).optional(),
-  events: z.array(z.record(z.string(), z.unknown())).optional(),
+  events: z.array(traccarEventSchema).optional(),
 });
 
 export const traccarTripSchema = z.object({
@@ -159,7 +184,29 @@ export interface HistoryResponse {
   readonly points: readonly HistoryPoint[];
 }
 
+/**
+ * Evento ya listo para mostrar, con el nombre de la unidad resuelto.
+ *
+ * El evento crudo de Traccar solo trae deviceId; el frontend necesitaria
+ * cruzarlo contra la lista de unidades cada vez, y para una notificacion
+ * emergente eso llega tarde.
+ */
+export interface FleetEvent {
+  readonly id: number;
+  readonly type: string;
+  readonly eventTime: string;
+  readonly deviceId: number;
+  readonly deviceName: string;
+  readonly geofenceId: number | null;
+  /** Texto ya redactado en espanol, listo para la notificacion. */
+  readonly message: string;
+  /** Que tan importante es. Define si interrumpe al usuario o no. */
+  readonly severity: 'info' | 'warning' | 'alarm';
+  readonly attributes: Readonly<Record<string, unknown>>;
+}
+
 /** Mensaje que el BFF manda a los navegadores por su propio WebSocket. */
 export type ServerMessage =
   | { readonly type: 'positions'; readonly units: readonly Unit[] }
+  | { readonly type: 'events'; readonly events: readonly FleetEvent[] }
   | { readonly type: 'upstream'; readonly connected: boolean };
