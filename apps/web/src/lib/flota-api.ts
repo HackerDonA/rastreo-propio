@@ -5,7 +5,7 @@
  * archivo siga siendo legible; todos hablan con el mismo BFF.
  */
 
-const API_URL: string = import.meta.env['VITE_API_URL'] ?? 'http://localhost:3000';
+const API_URL: string = import.meta.env['VITE_API_URL'] ?? 'http://localhost:4000';
 
 // ============================================================================
 //  Tipos
@@ -140,6 +140,15 @@ export interface LineaTiempo {
     readonly minutosDetenido: number;
     readonly velocidadMaxKmh: number;
   };
+}
+
+export interface EnlaceCompartido {
+  readonly token: string;
+  readonly label: string | null;
+  readonly createdAt: string;
+  readonly expiresAt: string;
+  readonly views: number;
+  readonly lastViewedAt: string | null;
 }
 
 export type Formato = 'csv' | 'gpx' | 'geojson';
@@ -340,4 +349,29 @@ export async function descargarRecorrido(
   enlace.remove();
   // Sin revoke, el blob se queda en memoria hasta recargar la pagina.
   URL.revokeObjectURL(url);
+}
+
+// --- Compartir ubicacion ----------------------------------------------------
+
+export async function obtenerEnlaces(deviceId: number): Promise<readonly EnlaceCompartido[]> {
+  const d = await pedir<{ links: readonly EnlaceCompartido[] }>(
+    `/api/units/${String(deviceId)}/share`,
+  );
+  return d.links;
+}
+
+export async function crearEnlace(
+  deviceId: number,
+  datos: { readonly label?: string; readonly horas: number },
+): Promise<{ token: string; expiresAt: string }> {
+  return pedir(`/api/units/${String(deviceId)}/share`, json('POST', datos));
+}
+
+export async function revocarEnlace(token: string): Promise<void> {
+  await pedir(`/api/share/${token}`, { method: 'DELETE' });
+}
+
+/** URL completa que se le manda a la persona. */
+export function urlCompartida(token: string): string {
+  return `${window.location.origin}/c/${token}`;
 }

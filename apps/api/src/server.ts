@@ -18,6 +18,7 @@ import { registerCommandRoutes } from './modules/commands/routes.ts';
 import { asegurarNotificacionWeb } from './modules/events/bootstrap.ts';
 import { registerGeofenceRoutes } from './modules/geofences/routes.ts';
 import { registerHistoryRoutes } from './modules/history/routes.ts';
+import { registerShareRoutes } from './modules/share/routes.ts';
 import { registerMaintenanceRoutes } from './modules/maintenance/routes.ts';
 import { registerVehicleRoutes } from './modules/vehicles/routes.ts';
 import { registerFleetRoutes } from './routes/fleet.ts';
@@ -131,6 +132,7 @@ async function main(): Promise<void> {
   registerVehicleRoutes(app);
   registerCommandRoutes(app, client);
   registerHistoryRoutes(app, client);
+  registerShareRoutes(app, client);
 
   /** WebSocket propio hacia el navegador. */
   app.get('/ws', { websocket: true }, (socket) => {
@@ -194,6 +196,32 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const) {
 }
 
 main().catch((error: unknown) => {
+  // EACCES en un puerto que nadie esta usando es desconcertante, y en Windows
+  // es frecuente: Hyper-V se reserva rangos dinamicos que CAMBIAN al reiniciar,
+  // y de pronto un puerto que funcionaba ayer deja de poder abrirse. Vale mucho
+  // mas decir como comprobarlo que repetir el codigo de error.
+  if (
+    error !== null &&
+    typeof error === 'object' &&
+    'code' in error &&
+    error.code === 'EACCES'
+  ) {
+    app.log.error(
+      [
+        `El puerto ${String(config.API_PORT)} no se puede abrir (EACCES).`,
+        '',
+        'En Windows esto casi siempre es Hyper-V, que se reserva rangos de',
+        'puertos y los cambia al reiniciar. Comprueba si el tuyo cayo dentro:',
+        '',
+        '    netsh int ipv4 show excludedportrange protocol=tcp',
+        '',
+        'Si aparece en la lista, cambia API_PORT en tu .env por uno fuera de',
+        'esos rangos y actualiza tambien VITE_API_URL y VITE_WS_URL.',
+      ].join('\n'),
+    );
+    process.exit(1);
+  }
+
   app.log.error({ err: error }, 'No se pudo arrancar el servidor');
   process.exit(1);
 });

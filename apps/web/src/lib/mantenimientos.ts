@@ -2,7 +2,7 @@
  * Tipos y cliente HTTP del módulo de mantenimientos.
  */
 
-const API_URL: string = import.meta.env['VITE_API_URL'] ?? 'http://localhost:3000';
+const API_URL: string = import.meta.env['VITE_API_URL'] ?? 'http://localhost:4000';
 
 export type Dimension = 'km' | 'date' | 'hours';
 export type NivelAviso = 'ok' | 'due_soon' | 'overdue';
@@ -46,6 +46,16 @@ export interface ReglaEvaluada {
   readonly baselineAt: string;
   readonly templateId: number | null;
   readonly lastServiceAt: string | null;
+  /**
+   * Dias que faltan al ritmo REAL de uso de esa unidad. Negativo si ya vencio,
+   * `null` si no se puede estimar (unidad parada, o sin historial suficiente).
+   *
+   * Es lo que convierte un contador en una herramienta de planificacion: dos
+   * unidades a las que les faltan los mismos kilometros pueden estar a una
+   * semana o a dos meses segun cuanto trabajen.
+   */
+  readonly diasEstimados: number | null;
+  readonly fechaEstimada: string | null;
 }
 
 export interface ResumenMantenimientos {
