@@ -157,6 +157,9 @@ Abre <http://localhost:5173> y verás la flota moviéndose.
 - [x] `GET /api/units/:id/trips` — viajes detectados por Traccar
 - [x] `GET /api/fleet/summary` — kilómetros del día y unidades activas
 - [x] Módulo de mantenimientos: plantillas, aplicación masiva y job horario
+- [x] Geocercas con eventos de entrada y salida
+- [x] Comandos remotos con bloqueo de corte de motor en movimiento
+- [x] Ficha administrativa por vehículo (placa, conductor, documentos)
 - [x] Reglas por kilometraje, fecha y horas motor con lógica de "lo que ocurra primero"
 
 **Frontend**
@@ -171,6 +174,9 @@ Abre <http://localhost:5173> y verás la flota moviéndose.
 - [x] Estados de carga, vacío y error resueltos
 - [ ] Vista de historial con selector de rango de fechas
 - [x] Vista de mantenimientos con barras de progreso e historial de servicios
+- [x] Dibujo de geocercas sobre el mapa (círculo y polígono)
+- [x] Centro de avisos con notificaciones del navegador
+- [x] Comandos remotos con confirmación escrita para los peligrosos
 
 **Operación**
 - [x] ADRs de las decisiones de arquitectura

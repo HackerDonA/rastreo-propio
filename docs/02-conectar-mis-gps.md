@@ -400,9 +400,37 @@ Traccar genera, tomados de sus codificadores de protocolo:
 | `meitrack` | `C01,0,12222` | `C01,0,02222` |
 
 > ⚠️ **Corte de motor: úsalo con muchísimo cuidado.** Un vehículo en movimiento
-> al que se le corta el motor es un accidente. La mayoría de los equipos serios
-> solo ejecutan el corte por debajo de cierta velocidad, pero **no lo des por
-> hecho**. Pruébalo únicamente con el vehículo estacionado.
+> al que se le corta el motor es un accidente: se pierde la dirección asistida y
+> los frenos endurecen. La mayoría de los equipos serios solo ejecutan el corte
+> por debajo de cierta velocidad, pero **no lo des por hecho** — varios clones
+> baratos lo obedecen a cualquier velocidad.
+
+### Desde la interfaz
+
+No hace falta mandar nada a mano: en el mapa, selecciona la unidad y pulsa
+**Comandos remotos** en su ficha. Ahí verás:
+
+- **Solo los comandos que tu equipo soporta.** Traccar filtra la lista por el
+  protocolo real del rastreador, así que un GT06 muestra unos y un Teltonika
+  otros. Si tu unidad usa el protocolo OsmAnd (el simulador, o la app Traccar
+  Client), verás únicamente "comando personalizado": ese protocolo no define
+  comandos remotos, y no es un fallo.
+- **Cada comando clasificado por riesgo:** sin riesgo, con cuidado, o peligroso.
+- **Dos canales:** por datos (gratis, requiere que el equipo esté en línea) o
+  por SMS (funciona sin datos, cuesta un mensaje).
+
+**Tres salvaguardas para el corte de motor:**
+
+1. El botón está **bloqueado** mientras el vehículo se mueve por encima de
+   5 km/h, y la ventana te dice a qué velocidad va.
+2. Hay que **escribir la palabra CONFIRMO** antes de poder enviarlo.
+3. El bloqueo vive en el **servidor**, no solo en la pantalla. Una comprobación
+   que solo existe en el frontend se salta con una petición directa, y aquí lo
+   que está en juego no es un dato mal guardado.
+
+Todo comando enviado queda en el registro del servidor con la unidad, el tipo,
+el canal y si se forzó. Para un corte de motor, saber quién y cuándo no es un
+lujo.
 
 ---
 
