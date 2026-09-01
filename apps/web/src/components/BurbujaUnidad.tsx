@@ -129,9 +129,10 @@ export function BurbujaUnidad({
     <div ref={raizRef} className="flex flex-col items-center">
       {/* ---------- Burbuja ---------- */}
       <div
-        className={`panel relative flex items-center gap-1.5 rounded-full border py-1
-                    sombra-suave transition-all ${compacta ? 'px-1.5' : 'pr-1 pl-2'}
-                    ${seleccionada ? 'ring-2 ring-indigo-500' : ''}`}
+        className={`panel relative flex items-center gap-1.5 rounded-full border-2 py-1
+                    sombra-suave transition-all ${compacta ? 'px-1' : 'pr-1 pl-1.5'}
+                    ${seleccionada ? 'scale-105 ring-2 ring-indigo-500 ring-offset-1' : ''}
+                    ${unidad.state === 'offline' || unidad.state === 'unknown' ? 'opacity-70' : ''}`}
         style={{ borderColor: color }}
       >
         <button
@@ -146,10 +147,19 @@ export function BurbujaUnidad({
           }\nDoble clic para renombrar`}
         >
           <span
-            className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-white"
+            className="relative flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-white"
             style={{ backgroundColor: color }}
           >
-            <IconoVehiculo categoria={unidad.category} className="h-3.5 w-3.5" />
+            <IconoVehiculo categoria={unidad.category} className="h-4 w-4" />
+            {/* Anillo que late solo mientras la unidad circula: distingue de un
+                vistazo lo que se mueve de lo que esta detenido, sin leer nada. */}
+            {unidad.state === 'moving' && (
+              <span
+                className="pulso absolute inset-0 rounded-full ring-2"
+                style={{ color }}
+                aria-hidden="true"
+              />
+            )}
           </span>
 
           {!compacta && (
@@ -159,8 +169,8 @@ export function BurbujaUnidad({
               </span>
               {unidad.state === 'moving' && (
                 <span
-                  className="text-xs leading-none font-semibold tabular-nums"
-                  style={{ color }}
+                  className="shrink-0 rounded-full px-1.5 py-0.5 text-[11px] leading-none font-bold tabular-nums text-white"
+                  style={{ backgroundColor: color }}
                 >
                   {velocidad}
                 </span>
@@ -334,14 +344,20 @@ export function BurbujaUnidad({
       />
 
       {/* ---------- Flecha de rumbo, sobre la posición exacta ---------- */}
+      {/*
+        La rotacion la aplica el BUCLE DE ANIMACION del mapa buscando
+        [data-rumbo], no React. Si fuera un estilo en linea, cada render la
+        sobrescribiria a media animacion y la flecha daria tirones.
+      */}
       <div
-        className="mt-0.5 flex h-6 w-6 items-center justify-center rounded-full border-2
+        data-rumbo={Math.round(rumbo)}
+        className="mt-0.5 flex h-7 w-7 items-center justify-center rounded-full border-2
                    border-white sombra-suave"
-        style={{ backgroundColor: color, transform: `rotate(${String(rumbo)}deg)` }}
+        style={{ backgroundColor: color }}
         aria-hidden="true"
       >
-        <svg viewBox="0 0 24 24" fill="white" className="h-3.5 w-3.5">
-          <path d="M12 4 18 19l-6-3.5L6 19Z" />
+        <svg viewBox="0 0 24 24" fill="white" className="h-4 w-4">
+          <path d="M12 3.5 18.5 20 12 16.2 5.5 20Z" />
         </svg>
       </div>
     </div>
