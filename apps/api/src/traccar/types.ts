@@ -83,6 +83,20 @@ export const traccarSocketMessageSchema = z.object({
   events: z.array(traccarEventSchema).optional(),
 });
 
+export const traccarStopSchema = z.object({
+  deviceId: z.number().int(),
+  startTime: z.string(),
+  endTime: z.string(),
+  latitude: z.number(),
+  longitude: z.number(),
+  address: z.string().nullable().optional(),
+  /** Milisegundos detenido. */
+  duration: z.number(),
+  /** Litros consumidos en ralenti, si el equipo lo reporta. */
+  spentFuel: z.number().optional(),
+  engineHours: z.number().optional(),
+});
+
 export const traccarTripSchema = z.object({
   deviceId: z.number().int(),
   deviceName: z.string().optional(),

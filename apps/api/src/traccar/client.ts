@@ -23,6 +23,7 @@ import {
   traccarEventSchema,
   traccarGeofenceSchema,
   traccarPositionSchema,
+  traccarStopSchema,
   traccarTripSchema,
   type TraccarDevice,
   type TraccarEvent,
@@ -382,6 +383,25 @@ export class TraccarClient {
       `/reports/events?${params.toString()}`,
       z.array(traccarEventSchema),
     );
+  }
+
+  /**
+   * Paradas detectadas por Traccar.
+   *
+   * OJO: los endpoints de /reports/ devuelven un XLSX si no se pide JSON
+   * explicitamente. Nuestro `request` ya manda Accept: application/json, que
+   * es lo que evita recibir un ZIP donde se esperaba un objeto.
+   */
+  public async getStops(
+    deviceId: number,
+    from: string,
+    to: string,
+  ): Promise<readonly z.infer<typeof traccarStopSchema>[]> {
+    return this.request('/reports/stops', z.array(traccarStopSchema), {
+      deviceId: String(deviceId),
+      from,
+      to,
+    });
   }
 
   /** Viajes detectados por Traccar en un rango de fechas. */
