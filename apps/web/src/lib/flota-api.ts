@@ -82,6 +82,68 @@ export interface ComandosUnidad {
   readonly soloCustom: boolean;
 }
 
+export interface PuntoHistorial {
+  readonly latitude: number;
+  readonly longitude: number;
+  readonly speedKmh: number;
+  readonly course: number;
+  readonly fixTime: string;
+}
+
+export interface Historial {
+  readonly totalPoints: number;
+  readonly returnedPoints: number;
+  readonly distanceKm: number;
+  readonly maxSpeedKmh: number;
+  readonly points: readonly PuntoHistorial[];
+}
+
+export type ElementoLinea =
+  | {
+      readonly tipo: 'viaje';
+      readonly inicio: string;
+      readonly fin: string;
+      readonly distanciaKm: number;
+      readonly duracionMin: number;
+      readonly velocidadMaxKmh: number;
+      readonly velocidadMediaKmh: number;
+      readonly desde: readonly [number, number];
+      readonly hasta: readonly [number, number];
+    }
+  | {
+      readonly tipo: 'parada';
+      readonly inicio: string;
+      readonly fin: string;
+      readonly duracionMin: number;
+      readonly posicion: readonly [number, number];
+      readonly direccion: string | null;
+    }
+  | {
+      readonly tipo: 'evento';
+      readonly inicio: string;
+      readonly mensaje: string;
+      readonly severidad: Severidad;
+      readonly evento: string;
+    };
+
+export interface LineaTiempo {
+  readonly unitId: number;
+  readonly unitName: string;
+  readonly from: string;
+  readonly to: string;
+  readonly elementos: readonly ElementoLinea[];
+  readonly resumen: {
+    readonly viajes: number;
+    readonly paradas: number;
+    readonly distanciaKm: number;
+    readonly minutosEnMovimiento: number;
+    readonly minutosDetenido: number;
+    readonly velocidadMaxKmh: number;
+  };
+}
+
+export type Formato = 'csv' | 'gpx' | 'geojson';
+
 export interface DocumentoPorVencer {
   readonly deviceId: number;
   readonly plate: string | null;
@@ -222,4 +284,60 @@ export async function enviarComando(
   },
 ): Promise<{ enviado: boolean; nota: string }> {
   return pedir(`/api/units/${String(deviceId)}/commands`, json('POST', datos));
+}
+
+// --- Historial --------------------------------------------------------------
+
+export async function obtenerLineaTiempo(
+  deviceId: number,
+  from: string,
+  to: string,
+): Promise<LineaTiempo> {
+  const q = new URLSearchParams({ from, to });
+  return pedir(`/api/units/${String(deviceId)}/timeline?${q.toString()}`);
+}
+
+export async function obtenerHistorial(
+  deviceId: number,
+  from: string,
+  to: string,
+): Promise<Historial> {
+  const q = new URLSearchParams({ from, to, maxPoints: '4000' });
+  return pedir(`/api/units/${String(deviceId)}/history?${q.toString()}`);
+}
+
+/**
+ * Descarga el recorrido como archivo.
+ *
+ * Se baja como blob y se dispara un enlace temporal en vez de abrir la URL
+ * directamente: asi el navegador respeta el nombre de archivo que manda el
+ * servidor y no navega fuera de la aplicacion.
+ */
+export async function descargarRecorrido(
+  deviceId: number,
+  from: string,
+  to: string,
+  formato: Formato,
+): Promise<void> {
+  const q = new URLSearchParams({ from, to, formato });
+  const respuesta = await fetch(
+    `${API_URL}/api/units/${String(deviceId)}/export?${q.toString()}`,
+  );
+  if (!respuesta.ok) throw new Error(`No se pudo generar el archivo (${String(respuesta.status)})`);
+
+  // El nombre viene en Content-Disposition; si falta, uno razonable de reserva.
+  const cabecera = respuesta.headers.get('Content-Disposition') ?? '';
+  const coincidencia = /filename="([^"]+)"/.exec(cabecera);
+  const nombre = coincidencia?.[1] ?? `recorrido.${formato}`;
+
+  const blob = await respuesta.blob();
+  const url = URL.createObjectURL(blob);
+  const enlace = document.createElement('a');
+  enlace.href = url;
+  enlace.download = nombre;
+  document.body.appendChild(enlace);
+  enlace.click();
+  enlace.remove();
+  // Sin revoke, el blob se queda en memoria hasta recargar la pagina.
+  URL.revokeObjectURL(url);
 }
