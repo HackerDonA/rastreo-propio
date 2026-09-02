@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Borra posiciones antiguas del historial.
 

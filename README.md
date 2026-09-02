@@ -124,12 +124,31 @@ pnpm infra:ps          # espera a ver (healthy) en los dos
 #    y genera el token en http://localhost:8082 → Cuenta → Token
 #    Pégalo en .env como TRACCAR_API_TOKEN
 
-# 4. API + frontend
-pnpm dev
-
-# 5. En otra terminal: 10 vehículos simulados
-pnpm simulate --units 10 --city cdmx
+# 4. Todo lo demás, de un tirón
+.\iniciar.ps1
 ```
+
+`iniciar.ps1` levanta los contenedores, espera a que estén **sanos** (no solo
+«arriba»), arranca la API y el frontend, lanza 10 vehículos simulados y abre el
+navegador. Si Docker Desktop está apagado, lo abre y lo espera.
+
+```powershell
+.\iniciar.ps1 -CambiarContrasena     # elegir la contraseña de acceso
+.\iniciar.ps1 -SinSimulador          # sin vehículos de mentira
+.\iniciar.ps1 -Unidades 3 -Ciudad monterrey
+
+.\detener.ps1                        # cerrar la app (los contenedores siguen)
+.\detener.ps1 -Todo                  # cerrar también Traccar y PostgreSQL
+```
+
+<details>
+<summary>Si prefieres hacerlo a mano</summary>
+
+```powershell
+pnpm dev                                    # API + frontend
+pnpm simulate --units 10 --city cdmx        # en otra terminal
+```
+</details>
 
 Abre <http://localhost:5173> y verás la flota moviéndose.
 

@@ -78,13 +78,30 @@ const OPCIONES_SCRYPT = {
   maxmem: SCRYPT_MAXMEM,
 } as const;
 
+/**
+ * Separador entre las tres partes del hash.
+ *
+ * Lo natural aquí sería `$`, que es lo que usa el formato PHC y lo que hace
+ * todo el mundo. **No se puede.**
+ *
+ * Este valor vive en el `.env`, y ese mismo `.env` se le pasa a Docker Compose
+ * con `--env-file`. Compose interpola variables, así que lee `$d68b0b75...`
+ * como «el valor de la variable d68b0b75...», avisa de que no existe, y la
+ * sustituye por una cadena vacía. El resultado son cuatro avisos en cada
+ * `pnpm infra:up` y un archivo que dos herramientas leen de forma distinta.
+ *
+ * El punto no significa nada en ninguna de las dos, y la sal y la clave son
+ * hexadecimal, así que no puede aparecer dentro de ellas.
+ */
+const SEPARADOR = '.';
+
 /** Genera el valor que va en AUTH_PASSWORD_HASH. */
 export async function hashearContrasena(contrasena: string): Promise<string> {
   const sal = randomBytes(16);
   const derivada = await scryptAsync(contrasena, sal, LARGO_CLAVE, OPCIONES_SCRYPT);
-  // Formato: scrypt$<sal en hex>$<clave en hex>. Autodescriptivo, para que
+  // Formato: scrypt.<sal en hex>.<clave en hex>. Autodescriptivo, para que
   // dentro de un año se entienda qué es esa cadena en el .env.
-  return `scrypt$${sal.toString('hex')}$${derivada.toString('hex')}`;
+  return ['scrypt', sal.toString('hex'), derivada.toString('hex')].join(SEPARADOR);
 }
 
 /**
@@ -98,7 +115,7 @@ export async function verificarContrasena(
   contrasena: string,
   hash: string,
 ): Promise<boolean> {
-  const partes = hash.split('$');
+  const partes = hash.split(SEPARADOR);
   if (partes.length !== 3 || partes[0] !== 'scrypt') return false;
 
   const salHex = partes[1];

@@ -25,7 +25,7 @@ describe('hashearContrasena', () => {
 
   it('produce un formato autodescriptivo', async () => {
     const hash = await hashearContrasena('x');
-    expect(hash).toMatch(/^scrypt\$[0-9a-f]{32}\$[0-9a-f]{128}$/);
+    expect(hash).toMatch(/^scrypt\.[0-9a-f]{32}\.[0-9a-f]{128}$/);
   });
 });
 
@@ -52,13 +52,23 @@ describe('verificarContrasena', () => {
 
   it('no revienta con un hash malformado', async () => {
     // Un .env mal editado no debe tumbar el servidor ni, peor, dejar pasar.
-    for (const malo of ['', 'basura', 'scrypt$solo-dos', 'md5$aa$bb', 'scrypt$$']) {
+    for (const malo of ['', 'basura', 'scrypt.solo-dos', 'md5.aa.bb', 'scrypt..']) {
       expect(await verificarContrasena('x', malo)).toBe(false);
     }
   });
 
   it('rechaza un hash con la clave de largo incorrecto', async () => {
-    expect(await verificarContrasena('x', 'scrypt$aabb$ccdd')).toBe(false);
+    expect(await verificarContrasena('x', 'scrypt.aabb.ccdd')).toBe(false);
+  });
+
+  it('rechaza el formato viejo separado por $', async () => {
+    // El separador se cambió a `.` porque Docker Compose interpreta `$` como
+    // interpolación de variables al leer el mismo .env. Un hash del formato
+    // anterior tiene que fallar de forma limpia, no colarse ni reventar: se
+    // regenera con `.\iniciar.ps1 -CambiarContrasena`.
+    expect(
+      await verificarContrasena('x', `scrypt$${'aa'.repeat(16)}$${'bb'.repeat(64)}`),
+    ).toBe(false);
   });
 });
 
