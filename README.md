@@ -132,6 +132,12 @@ pnpm infra:ps          # espera a ver (healthy) en los dos
 «arriba»), arranca la API y el frontend, lanza 10 vehículos simulados y abre el
 navegador. Si Docker Desktop está apagado, lo abre y lo espera.
 
+También hay `iniciar.cmd` y `detener.cmd`, que hacen lo mismo con **doble clic**
+desde el Explorador. Existen porque Windows abre los `.ps1` en el Bloc de notas
+en vez de ejecutarlos, y porque llaman a PowerShell con `-ExecutionPolicy
+Bypass` solo para esa ejecución: funcionan sin cambiar la configuración de la
+máquina.
+
 ```powershell
 .\iniciar.ps1 -CambiarContrasena     # elegir la contraseña de acceso
 .\iniciar.ps1 -SinSimulador          # sin vehículos de mentira
