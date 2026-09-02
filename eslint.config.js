@@ -80,6 +80,21 @@ export default tseslint.config(
     },
   },
 
+  // --- Service worker: JavaScript suelto, no TypeScript ---------------------
+  //
+  // Vive en apps/web/public/ y se sirve tal cual, sin pasar por el bundler ni
+  // por tsc. Por eso hay que apagarle las reglas con información de tipos: no
+  // pertenece a ningún tsconfig y el linter no sabría de dónde sacar los
+  // tipos. Se linta igual, porque tiene lógica de caché que sí puede fallar.
+  {
+    files: ['apps/web/public/*.js'],
+    extends: [tseslint.configs.disableTypeChecked],
+    languageOptions: {
+      globals: { ...globals.serviceworker },
+      sourceType: 'script',
+    },
+  },
+
   // --- Pruebas: algo más permisivas ----------------------------------------
   {
     files: ['**/*.test.ts', '**/*.test.tsx'],

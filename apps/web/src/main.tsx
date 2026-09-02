@@ -3,14 +3,27 @@ import { createRoot } from 'react-dom/client';
 
 import { App } from './App.tsx';
 import { Acceso } from './components/Acceso.tsx';
+import { Instalar } from './components/Instalar.tsx';
 import { VistaCompartida } from './components/VistaCompartida.tsx';
 import { estadoSesion } from './lib/flota-api.ts';
+import { escucharInstalacion, registrarServiceWorker } from './lib/instalable.ts';
 import './index.css';
 
 const contenedor = document.getElementById('root');
 if (contenedor === null) {
   throw new Error('No se encontró el elemento #root en index.html');
 }
+
+/*
+ * Aplicacion instalable.
+ *
+ * Va aqui y no dentro de un componente a proposito: `beforeinstallprompt` lo
+ * dispara el navegador muy pronto, a veces antes de que React haya montado
+ * nada. Si se empezara a escuchar dentro de un `useEffect`, el evento ya
+ * habria pasado y la aplicacion nunca se ofreceria como instalable.
+ */
+escucharInstalacion();
+registrarServiceWorker();
 
 /**
  * Enrutado minimo por ruta.
@@ -53,7 +66,15 @@ function Raiz(): JSX.Element | null {
 
   if (estado === 'consultando') return null;
   if (estado === 'acceso') return <Acceso onEntrar={comprobar} />;
-  return <App />;
+  return (
+    <>
+      <App />
+      {/* Solo dentro de la aplicacion privada: ofrecer instalar sobre la
+          pantalla de acceso, o sobre un enlace publico que alguien abrio una
+          sola vez, es pedirle algo a quien no le sirve de nada. */}
+      <Instalar />
+    </>
+  );
 }
 
 createRoot(contenedor).render(

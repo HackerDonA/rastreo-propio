@@ -2,9 +2,38 @@
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!--
+      viewport-fit=cover: sin esto, iOS deja franjas negras arriba y abajo en
+      los iPhone con notch en vez de dejar que el mapa llegue al borde. El
+      precio es tener que respetar los safe-area-inset en el CSS, que es lo
+      que hace index.css.
+    -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
     <title>Rastreo · Flota</title>
     <meta name="description" content="Monitoreo GPS de flota vehicular en tiempo real" />
+
+    <!-- Aplicacion instalable en iPhone, Android, iPad, tablet y PC. -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+
+    <!--
+      iOS ignora el manifest por completo: ni el icono, ni el nombre, ni el
+      modo standalone. Todo eso hay que repetirlo con estas etiquetas propias
+      de Apple, o al agregar a la pantalla de inicio sale una captura de la
+      pagina como icono y se abre dentro de Safari con su barra.
+    -->
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Rastreo" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="mobile-web-app-capable" content="yes" />
+
+    <!-- Color de la barra del sistema, distinto en claro y en oscuro. -->
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0b1020" />
     <script>
       // Se aplica el tema ANTES de pintar, para que no haya un destello blanco
       // al recargar con el modo oscuro activo.

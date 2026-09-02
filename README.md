@@ -186,6 +186,15 @@ Abre <http://localhost:5173> y verás la flota moviéndose.
 - [x] Capas de mapa: calles, oscuro, minimalista y satélite
 - [x] Compartir la ubicación de una unidad por enlace temporal
 
+**Aplicación instalable (PWA)**
+- [x] Se instala en iPhone, Android, iPad, tablet y PC desde el mismo código
+- [x] Se abre a pantalla completa, con su icono y sin barra del navegador
+- [x] Respeta el notch y la barra de gestos (áreas seguras de iOS)
+- [x] Áreas de toque de 44 px y navegación deslizable en pantallas chicas
+- [x] Invitación a instalar, con las instrucciones manuales que iOS exige
+- [x] Sin conexión abre la aplicación, pero **nunca** sirve posiciones viejas
+- [ ] Notificaciones con la aplicación cerrada (Web Push + claves VAPID)
+
 **Seguridad**
 - [x] Acceso con contraseña, guardada como hash scrypt con sal
 - [x] Sesión en cookie `httpOnly` + `SameSite=strict` y firmada
@@ -215,6 +224,7 @@ Abre <http://localhost:5173> y verás la flota moviéndose.
 | [02 · Conectar mis GPS](docs/02-conectar-mis-gps.md) | Identificar el protocolo de un rastreador, configurarlo por SMS, y migrar desde Ruhavik |
 | [03 · Arquitectura](docs/03-arquitectura.md) | Flujo de datos, modelo del esquema `app`, volumen de datos esperado |
 | [04 · Migrar a producción](docs/04-migrar-a-produccion.md) | DDNS, port forwarding, HTTPS con Caddy, respaldos |
+| [05 · Instalar en el celular](docs/05-instalar-en-el-celular.md) | Instalarla en iPhone, Android, iPad y PC, y probarla en el teléfono antes de publicar |
 
 ---
 
@@ -229,6 +239,7 @@ descartamos. Es la parte del repositorio que más dice sobre cómo se pensó.
 | [0002](docs/adr/0002-bff-propio.md) | Un BFF entre el frontend y Traccar | El WebSocket de Traccar **solo** acepta cookie de sesión, no token. Sin BFF, no hay tiempo real. |
 | [0003](docs/adr/0003-maplibre-openfreemap.md) | MapLibre + OpenFreeMap | Un panel de rastreo abierto todo el día es el peor caso para un mapa que cobra por carga. |
 | [0004](docs/adr/0004-schema-app-separado.md) | Esquema `app` separado, misma base | Traccar migra su esquema solo en cada arranque. Separar permite actualizarlo sin miedo. |
+| [0005](docs/adr/0005-pwa-en-vez-de-app-nativa.md) | PWA instalable, no app de tiendas | La App Store cuesta 99 USD/año. Sustituir una suscripción por otra pierde el argumento del proyecto. |
 
 ---
 
@@ -318,6 +329,21 @@ métodos, así que el navegador bloqueaba `DELETE`, `PUT` y `PATCH` **antes de
 enviarlos**. El servidor nunca veía la petición y no registraba ningún error.
 Toda mi verificación había sido con curl, que va directo al método y jamás
 dispara el preflight: la clase de fallo que solo aparece en el navegador.
+
+**La restricción de negocio decidió la plataforma, no la tecnología.** Para
+llevar esto a iPhone, Android, iPad y PC la respuesta "seria" es React Native o
+Capacitor. Pero publicar en la App Store cuesta **99 USD al año**, y este
+proyecto existe para dejar de pagar una suscripción de rastreo: sustituirla por
+otra cuota anual habría anulado el argumento entero. Una PWA llega a los cinco
+destinos, con el código que ya existía, por cero. Y no cierra la puerta —
+Capacitor envuelve esta misma PWA el día que haga falta una tienda.
+
+**Cachear de más puede ser un error de seguridad, no de rendimiento.** El
+service worker guarda el programa y **nunca** las respuestas de `/api/*`.
+Guardarlas haría la aplicación más rápida sin señal, pero mostraría un camión
+en una calle donde ya no está — y una posición vieja se ve exactamente igual
+que una buena. Aquí la opción correcta es la que se siente peor: sin conexión,
+la aplicación abre vacía y lo dice.
 
 **Una API sin autenticación no es "todavía no", es una cuenta regresiva.** El
 BFF nació escuchando en `127.0.0.1` y eso lo hacía inofensivo — hasta que la

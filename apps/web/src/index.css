@@ -71,6 +71,72 @@ body {
 }
 
 /* ---------------------------------------------------------------------------
+   Tactil e instalada: iPhone, Android, iPad y tablets
+   ---------------------------------------------------------------------------
+
+   Esta aplicacion se instala en la pantalla de inicio y se abre sin barra de
+   navegador. Eso quita la red de seguridad del navegador: ya no hay boton de
+   recargar ni de atras, y el area util llega hasta el borde fisico de la
+   pantalla, notch incluido.
+   --------------------------------------------------------------------------- */
+
+html {
+  /* Evita que iOS agrande el texto al girar el telefono a horizontal. */
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  /*
+    Corta el "tirar para recargar" y el rebote elastico del final del scroll.
+    Sin esto, arrastrar el mapa hacia abajo recarga la aplicacion entera, que
+    es la interaccion mas frustrante posible en un mapa tactil.
+  */
+  overscroll-behavior: none;
+  /* El resaltado azul al tocar delata que esto es una pagina web. */
+  -webkit-tap-highlight-color: transparent;
+}
+
+/*
+  Margenes de seguridad del sistema.
+
+  Con viewport-fit=cover la aplicacion llega al borde fisico, asi que el
+  contenido que no puede quedar tapado -barra superior, botones inferiores-
+  tiene que apartarse a mano del notch, de la camara y de la barra de gestos.
+  `max()` mantiene un margen minimo en las pantallas que no tienen nada de eso.
+*/
+@utility segura-arriba {
+  padding-top: max(0.5rem, env(safe-area-inset-top));
+}
+@utility segura-abajo {
+  padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+}
+@utility segura-lados {
+  padding-left: max(0.5rem, env(safe-area-inset-left));
+  padding-right: max(0.5rem, env(safe-area-inset-right));
+}
+
+/*
+  Area minima para tocar con el dedo.
+
+  44 px es la recomendacion de Apple y 48 dp la de Android. Un boton de 28 px
+  se ve elegante con el raton y se falla una de cada tres veces con el pulgar
+  en un coche en movimiento, que es justo donde se va a usar esto.
+*/
+@utility toque {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/*
+  Las hojas deslizantes de movil se arrastran con el dedo; sin esto el
+  navegador interpreta el arrastre como seleccion de texto.
+*/
+@utility sin-seleccion {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* ---------------------------------------------------------------------------
    Utilidades sobre las variables de tema
    --------------------------------------------------------------------------- */
 @utility superficie {

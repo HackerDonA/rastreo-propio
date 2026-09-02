@@ -21,11 +21,20 @@ interface IndicadorProps {
   readonly etiqueta: string;
   readonly valor: string;
   readonly color?: string;
+  /**
+   * Se oculta en pantallas chicas.
+   *
+   * En un telefono la barra ocupa lo que le des, y seis indicadores la
+   * convierten en tres renglones que se comen el mapa. Los que informan de un
+   * vistazo -cuantas hay, cuantas se mueven, cuantas estan mudas- se quedan
+   * siempre; los agregados de consulta se reservan para pantalla ancha.
+   */
+  readonly soloAncho?: boolean;
 }
 
-function Indicador({ etiqueta, valor, color }: IndicadorProps): JSX.Element {
+function Indicador({ etiqueta, valor, color, soloAncho }: IndicadorProps): JSX.Element {
   return (
-    <div className="flex flex-col">
+    <div className={`flex flex-col ${soloAncho === true ? 'hidden lg:flex' : ''}`}>
       <span className="texto-suave text-xs tracking-wide uppercase">{etiqueta}</span>
       <span
         className="text-lg leading-tight font-semibold tabular-nums"
@@ -65,7 +74,7 @@ export function BarraFlota({
   }, [unidades]);
 
   return (
-    <header className="borde panel flex shrink-0 flex-wrap items-center gap-x-6 gap-y-3 border-b px-4 py-3">
+    <header className="borde panel segura-arriba segura-lados flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 border-b px-3 pb-2.5 sm:gap-x-6 sm:px-4">
       <div className="flex items-center gap-2.5">
         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 text-white">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4.5 w-4.5" aria-hidden="true">
@@ -93,10 +102,12 @@ export function BarraFlota({
         <Indicador
           etiqueta="Vel. promedio"
           valor={`${Math.round(stats.velocidadMedia)} km/h`}
+          soloAncho
         />
         <Indicador
           etiqueta="Odómetro flota"
           valor={`${stats.kmTotales.toLocaleString('es-MX', { maximumFractionDigits: 0 })} km`}
+          soloAncho
         />
       </div>
 
@@ -112,7 +123,9 @@ export function BarraFlota({
           <span
             className={`h-1.5 w-1.5 rounded-full ${enVivo ? 'pulso bg-green-500' : 'bg-red-500'}`}
           />
-          <span className="texto-suave font-medium">{enVivo ? 'En vivo' : 'Sin conexión'}</span>
+          <span className="texto-suave hidden font-medium sm:inline">
+            {enVivo ? 'En vivo' : 'Sin conexión'}
+          </span>
         </div>
 
         {avisos}
@@ -120,7 +133,7 @@ export function BarraFlota({
         <button
           type="button"
           onClick={onCambiarTema}
-          className="borde texto-suave rounded-lg border p-2 transition hover:bg-black/5 dark:hover:bg-white/5"
+          className="borde texto-suave toque flex items-center justify-center rounded-lg border transition hover:bg-black/5 dark:hover:bg-white/5"
           aria-label={oscuro ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
           title={oscuro ? 'Modo claro' : 'Modo oscuro'}
         >

@@ -268,7 +268,16 @@ export function App(): JSX.Element {
       />
 
       {/* Pestanas de nivel superior */}
-      <nav className="borde panel flex shrink-0 gap-1 border-b px-4" aria-label="Secciones">
+      {/*
+        En un telefono las tres pestanas no caben a la vez, asi que la barra se
+        desliza en horizontal. `scrollbar-none` quita la barra de
+        desplazamiento, que en movil no hace falta y en escritorio robaria
+        altura a un elemento de 44 px.
+      */}
+      <nav
+        className="borde panel segura-lados flex shrink-0 gap-1 overflow-x-auto border-b px-3 [scrollbar-width:none] sm:px-4 [&::-webkit-scrollbar]:hidden"
+        aria-label="Secciones"
+      >
         {([
           { id: 'mapa', etiqueta: 'Mapa en vivo' },
           { id: 'historial', etiqueta: 'Historial' },
@@ -281,7 +290,7 @@ export function App(): JSX.Element {
               setVista(t.id);
             }}
             aria-current={vista === t.id ? 'page' : undefined}
-            className={`-mb-px border-b-2 px-3 py-2 text-sm font-medium transition ${
+            className={`toque -mb-px shrink-0 border-b-2 px-3 text-sm font-medium whitespace-nowrap transition ${
               vista === t.id
                 ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400'
                 : 'texto-suave border-transparent hover:border-black/15 dark:hover:border-white/20'
@@ -327,8 +336,8 @@ export function App(): JSX.Element {
       <div className="relative flex min-h-0 flex-1">
         {/* Panel lateral. En pantallas chicas se convierte en un cajon. */}
         <aside
-          className={`borde panel absolute inset-y-0 left-0 z-20 w-80 border-r transition-transform
-                      md:relative md:translate-x-0 ${
+          className={`borde panel segura-abajo absolute inset-y-0 left-0 z-20 w-[min(20rem,85vw)] border-r transition-transform
+                      md:relative md:w-80 md:translate-x-0 ${
                         panelAbierto ? 'translate-x-0 sombra-alta' : '-translate-x-full'
                       }`}
         >
@@ -345,7 +354,7 @@ export function App(): JSX.Element {
                     setPestanaLateral(t.id);
                   }}
                   aria-current={pestanaLateral === t.id ? 'true' : undefined}
-                  className={`-mb-px flex-1 border-b-2 px-2 py-2 text-xs font-medium transition ${
+                  className={`toque -mb-px flex-1 border-b-2 px-2 text-xs font-medium transition ${
                     pestanaLateral === t.id
                       ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400'
                       : 'texto-suave border-transparent hover:border-black/15 dark:hover:border-white/20'

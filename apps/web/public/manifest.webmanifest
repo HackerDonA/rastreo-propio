@@ -1,0 +1,35 @@
+{
+  "name": "Rastreo · Flota",
+  "short_name": "Rastreo",
+  "description": "Monitoreo GPS de flota vehicular en tiempo real",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0b1020",
+  "theme_color": "#4f46e5",
+  "lang": "es-MX",
+  "dir": "ltr",
+  "categories": ["navigation", "productivity", "utilities"],
+  "icons": [
+    {
+      "src": "/icono-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icono-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icono-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
