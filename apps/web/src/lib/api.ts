@@ -10,20 +10,32 @@ import type { FleetSummary, Unit } from './tipos.ts';
 /*
  * Direccion de la API.
  *
- * Va con 127.0.0.1 y NO con localhost, y no es lo mismo en Windows.
+ * Vacia por omision, es decir: EL MISMO ORIGEN que la pagina. Las peticiones
+ * salen como `/api/units`, y quien las lleva hasta la API es el proxy de Vite
+ * en desarrollo y Caddy en produccion.
  *
- * `localhost` resuelve primero a ::1 (IPv6). El servidor de Vite escucha en
- * `::`, asi que la pagina carga por IPv6 sin problema; pero la API escucha en
- * 127.0.0.1, que es solo IPv4. El navegador intenta ::1:4000, no encuentra a
- * nadie, y la peticion falla antes de salir: se ve como "no se pudo contactar
- * a la API" con la API perfectamente encendida.
+ * Apuntar a otro host desde el navegador parece mas directo y rompe la sesion:
+ * la cookie es `SameSite=Strict`, asi que el navegador la guarda pero no la
+ * reenvia a un sitio distinto. Iniciar sesion responde 200, la peticion
+ * siguiente 401, y la aplicacion vuelve sola a la pantalla de acceso sin decir
+ * por que. Ver el comentario del proxy en vite.config.ts.
  *
- * Se exporta para que la pantalla de error pueda mostrar la URL real en vez de
- * un puerto escrito a mano, que es exactamente lo que se quedo desfasado
- * cuando la API se movio del 3000 al 4000.
+ * Se exporta para que la pantalla de error muestre la URL real en vez de un
+ * puerto escrito a mano, que es lo que se quedo desfasado cuando la API se
+ * movio del 3000 al 4000.
  */
-export const API_URL: string = import.meta.env['VITE_API_URL'] ?? 'http://127.0.0.1:4000';
-const WS_URL: string = import.meta.env['VITE_WS_URL'] ?? 'ws://127.0.0.1:4000/ws';
+export const API_URL: string = import.meta.env['VITE_API_URL'] ?? '';
+
+/**
+ * Direccion del WebSocket.
+ *
+ * Se deriva de la pagina cuando no esta configurada, para que herede su host y
+ * su esquema. Escribir `ws://` fijo funcionaria en desarrollo y fallaria en
+ * produccion: sobre HTTPS el navegador bloquea un WebSocket sin cifrar.
+ */
+const WS_URL: string =
+  import.meta.env['VITE_WS_URL'] ??
+  `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws`;
 
 export class ApiError extends Error {
   constructor(

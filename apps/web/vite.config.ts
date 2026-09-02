@@ -35,6 +35,32 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    /*
+     * La API se sirve por el MISMO origen que la pagina.
+     *
+     * Sin esto, el navegador carga la pagina de localhost:5173 y pide los datos
+     * a otro host. Eso rompe dos cosas a la vez:
+     *
+     * 1. La cookie de sesion es `SameSite=Strict`, asi que el navegador la
+     *    guarda pero NO la reenvia a un sitio distinto. El resultado es que
+     *    iniciar sesion responde 200 y la siguiente peticion 401: se entra y
+     *    se vuelve a salir en el mismo instante.
+     *
+     * 2. Si la API se declara como `localhost`, en Windows eso resuelve
+     *    primero a ::1 (IPv6) y la API escucha solo en 127.0.0.1 (IPv4), asi
+     *    que la peticion falla antes de salir de la maquina.
+     *
+     * Con el proxy no hay nada de eso: para el navegador todo es
+     * localhost:5173, y quien habla con la API es Vite desde el servidor, por
+     * IPv4 explicito. Ademas es lo mismo que pasara en produccion, donde Caddy
+     * sirve el frontend y la API bajo un solo dominio.
+     */
+    proxy: {
+      '/api': { target: 'http://127.0.0.1:4000', changeOrigin: false },
+      // `ws: true` es imprescindible: sin eso, Vite responde al handshake con
+      // un 200 normal y el WebSocket del mapa en vivo nunca se establece.
+      '/ws': { target: 'http://127.0.0.1:4000', ws: true, changeOrigin: false },
+    },
     // Escucha en todas las interfaces para poder abrir el frontend desde el
     // celular en la misma red y comprobar el diseno responsivo en un telefono
     // de verdad, no en el simulador del navegador.

@@ -12,7 +12,7 @@ import { useEffect, useRef, useState, type JSX } from 'react';
 
 import { IconoVehiculo } from './IconoVehiculo.tsx';
 
-const API_URL: string = import.meta.env['VITE_API_URL'] ?? 'http://127.0.0.1:4000';
+const API_URL: string = import.meta.env['VITE_API_URL'] ?? '';
 const ESTILO: string =
   import.meta.env['VITE_MAP_STYLE_LIGHT'] ?? 'https://tiles.openfreemap.org/styles/liberty';
 
