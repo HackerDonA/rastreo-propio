@@ -81,8 +81,33 @@ app.setErrorHandler<FastifyError>((error, request, reply) => {
     return;
   }
 
+  const estado = error.statusCode ?? 500;
+
+  /*
+   * Los 4xx los provoca la peticion, no el servidor.
+   *
+   * Antes caian todos en la rama de abajo, que conserva el codigo pero
+   * reemplaza el mensaje por "Error interno del servidor". El resultado era
+   * que pasarse del limite de intentos al entrar contestaba 429 con ese texto,
+   * y quien lo leia entendia que la aplicacion estaba rota cuando lo unico que
+   * tenia que hacer era esperar un minuto.
+   *
+   * El mensaje de un 4xx es seguro de mostrar: describe que tiene de malo la
+   * peticion, no como esta hecho el servidor por dentro.
+   */
+  if (estado >= 400 && estado < 500) {
+    if (estado === 429) {
+      void reply.status(429).send({
+        error: 'Demasiados intentos seguidos. Espera un minuto y vuelve a intentarlo.',
+      });
+      return;
+    }
+    void reply.status(estado).send({ error: error.message });
+    return;
+  }
+
   request.log.error({ err: error }, 'Error no controlado');
-  void reply.status(error.statusCode ?? 500).send({
+  void reply.status(estado).send({
     error: 'Error interno del servidor',
   });
 });

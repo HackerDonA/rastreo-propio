@@ -78,9 +78,17 @@ export function registerAuthRoutes(app: FastifyInstance): void {
   app.post(
     '/api/auth/login',
     {
-      // Límite estricto y aparte del general: es la única puerta donde una
-      // fuerza bruta tiene sentido, y scrypt ya la hace lenta por diseño.
-      config: { rateLimit: { max: 5, timeWindow: '1 minute' } },
+      /*
+       * Límite propio, aparte del general: es la única puerta donde una fuerza
+       * bruta tiene sentido.
+       *
+       * Diez y no cinco. Con cinco, escribir mal un par de veces una frase
+       * larga bastaba para quedarse fuera un minuto en uso normal, y eso no
+       * compra seguridad: scrypt tarda ~100 ms por intento, así que el techo
+       * real lo pone el coste de la propia función, no este contador. Diez
+       * frena igual de bien a un atacante y deja margen a los dedos.
+       */
+      config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
     },
     async (request, reply) => {
       if (!protegido) {
