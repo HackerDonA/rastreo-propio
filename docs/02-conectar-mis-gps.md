@@ -277,9 +277,11 @@ empeora.
 > - Verifica la sintaxis **contra el manual de tu modelo exacto**. Las tablas de
 >   abajo citan su fuente, pero un modelo distinto de la misma marca puede usar
 >   otra sintaxis.
-> - **Apunta a un hostname DDNS, nunca a una IP.** Si la IP cambia, tienes que
->   reconfigurar los diez vehículos por SMS uno por uno. Ver
->   [`04-migrar-a-produccion.md`](04-migrar-a-produccion.md).
+> - **Apunta a un hostname DDNS, nunca a una IP** *siempre que el equipo lo
+>   permita*. Si la IP cambia, hay que reconfigurar por SMS unidad por unidad.
+>   Ver [`04-migrar-a-produccion.md`](04-migrar-a-produccion.md). El Concox
+>   GT06N acepta dominio (`SERVER,1,...`); el **Coban GPS103-B solo documenta
+>   IP**, y eso hay que comprobarlo en tu unidad — más abajo.
 > - **El puerto es el del protocolo (5023, 5013…), no el 8082.** El 8082 es la
 >   interfaz web, y es la confusión más común
 >   ([foro de Traccar](https://www.traccar.org/forums/topic/gt06n-cannot-connect/)).
@@ -287,24 +289,136 @@ empeora.
 
 ---
 
+### ⭐ Mis dos unidades: la secuencia exacta
+
+Estas son las dos que voy a conectar. Las tablas completas de cada familia
+están más abajo; esto es solo el orden de disparo, sin nada de más.
+
+Sustituye en todo lo que sigue:
+
+- `internet.itelcel.com` → el APN real de tu SIM (tabla en la sección (e))
+- `rastreo.midominio.duckdns.org` → tu hostname DDNS
+- `203.0.113.10` → tu IP pública (solo si el equipo no acepta dominio)
+- `123456` → la contraseña de tu equipo, si la cambiaste
+
+#### 1 · Concox GT06N → protocolo `gt06`, puerto **5023**
+
+```text
+GPRSSET#                                              ← ver cómo está ahora
+APN,internet.itelcel.com#
+SERVER,1,rastreo.midominio.duckdns.org,5023,0#
+TIMER,15,10#                                          ← 15 s con ACC, 10 min sin
+GPRSSET#                                              ← confirmar que quedó
+RESET#
+```
+
+El equipo contesta a cada SMS. **Espera la respuesta antes de mandar el
+siguiente.** El segundo `GPRSSET#` es el que te dice si de verdad quedó
+configurado, y vale más que cualquier `ok`.
+
+#### 2 · Coban GPS103-B → protocolo `gps103`, puerto **5001**
+
+```text
+admin123456 5215512345678         ← tu celular, con código de país
+apn123456 internet.itelcel.com
+adminip123456 203.0.113.10 5001   ← prueba primero con tu hostname DDNS
+gprs123456                        ← SIN ESTO NO REPORTA NADA
+fix030s***n123456                 ← cada 30 s
+check123456                       ← confirmar estado
+```
+
+Dos trampas propias de este equipo, ambas verificadas contra su manual:
+
+- **`gprs123456` es obligatorio.** De fábrica está en modo SMS. Sin este
+  comando puedes tener el APN y el servidor perfectos y no llegará nada.
+- **No mandes `begin123456`.** No autoriza tu número: **borra la configuración
+  y vuelve el equipo a fábrica.** Es una confusión muy repetida en guías de
+  internet.
+
+#### 3 · Antes de mandar el primer SMS
+
+Necesitas el IMEI de cada equipo para darlo de alta en Traccar. Si no lo tienes
+a la mano:
+
+- GT06N → `PARAM#` (viene en la respuesta)
+- GPS103-B → `imei123456`
+
+Da de alta las dos unidades en Traccar (**Ajustes → Dispositivos → +**) usando
+ese IMEI como identificador. Si el equipo reporta y la unidad no existe,
+Traccar rechaza los datos y en el log verás `Unknown device` — ver el Caso 3 de
+la sección (c).
+
+#### 4 · Comprobar que llegó
+
+```powershell
+pnpm infra:logs | Select-String "gt06|gps103"
+```
+
+Si ves la trama y el nombre del protocolo, ya está. Si no ves nada, el problema
+está antes: SIM sin datos, APN mal, o el puerto sin llegar desde internet
+(sección (h)).
+
+---
+
 ### GT06 · Concox / Jimi (modelos GT06N y familia)
 
-**Fuente:** manual oficial del Concox GT06N. No distingue mayúsculas de
-minúsculas. El equipo responde `ok` si aceptó el comando.
+**Fuente:** lista oficial de comandos GT06 publicada por
+[GPS-Trace](https://content.gps-trace.com/assets/96c6ed6a-2598-4605-8b25-2a38e70664a8)
+(el mismo proveedor detrás de Ruhavik) y el manual del GT06N. Todos los
+comandos **terminan en `#`** y no distinguen mayúsculas de minúsculas. El
+equipo responde por SMS a cada uno.
 
-| Qué hace | Comando |
+**Configurar**
+
+| Qué hace | Comando | Ejemplo |
+|---|---|---|
+| APN sin usuario | `APN,<apn>#` | `APN,internet.itelcel.com#` |
+| APN con usuario y contraseña | `APN,<apn>,<usuario>,<clave>#` | `APN,internet.itelcel.com,webgprs,webgprs2002#` |
+| Servidor por **dominio** | `SERVER,1,<dominio>,<puerto>,0#` | `SERVER,1,rastreo.midominio.duckdns.org,5023,0#` |
+| Servidor por **IP** | `SERVER,0,<ip>,<puerto>,0#` | `SERVER,0,203.0.113.10,5023,0#` |
+| Intervalo de reporte | `TIMER,<T1>,<T2>#` | `TIMER,15,10#` |
+| Zona horaria | `GMT,<E\|W>,<horas>,<minutos>#` | `GMT,E,0,0#` |
+| Reiniciar (en 20 s) | `RESET#` | |
+| Volver de fábrica | `FACTORY#` | |
+
+> **`SERVER`:** el primer parámetro es el tipo (**`1` = dominio, `0` = IP**) y
+> el último es el protocolo (**`0` = TCP**, que es lo que quieres). Equivocar
+> el primero es de las causas más frecuentes de "configuré todo y no llega".
+>
+> **`TIMER`:** `T1` es el intervalo **en segundos** con el ACC encendido
+> (rango 5–18000, por omisión 10) y `T2` **en minutos** con el ACC apagado
+> (por omisión 10). Son unidades distintas en el mismo comando; es fácil poner
+> `TIMER,15,15#` creyendo que son 15 segundos en ambos casos.
+
+**Consultar — estos no cambian nada, úsalos sin miedo**
+
+| Qué devuelve | Comando |
 |---|---|
-| APN sin usuario | `APN,internet.itelcel.com#` |
-| APN con usuario y contraseña | `APN,internet.itelcel.com,webgprs,webgprs2002#` |
-| Servidor por **dominio** | `SERVER,1,rastreo.midominio.duckdns.org,5023,0#` |
-| Servidor por IP | `SERVER,0,203.0.113.10,5023,0#` |
-| Reiniciar | `RESET#` |
+| **APN y servidor configurados** ⭐ | `GPRSSET#` |
+| Todos los parámetros (incluido el IMEI) | `PARAM#` |
+| Batería, GPRS, señal GSM, GPS, ACC | `STATUS#` |
+| Posición actual | `WHERE#` |
+| Versión de firmware | `VERSION#` |
+| Solo el servidor / solo el APN | `SERVER#` / `APN#` |
 
-> El primer parámetro de `SERVER` es el tipo: **`1` = dominio, `0` = IP**.
-> Equivocarlo es una de las causas más frecuentes de "configuré todo y no llega".
+`GPRSSET#` es el comando más útil de la lista: te dice **exactamente** a dónde
+está apuntando el equipo ahora mismo, que es lo primero que quieres saber
+cuando algo no llega. Responde algo así:
 
-**Verificar contra el manual del modelo:** el comando de intervalo de reporte
-(`TIMER`, `UPLOAD` o similar según versión) y el de consulta de estado.
+```
+GPRS:ON; APN:CMNET,,; Server:1,hgt06.szdatasource.com,8841,0;
+```
+
+**Corte de motor** — `RELAY,1#` corta y `RELAY,0#` restablece; `RELAY#`
+consulta el estado. Traccar envía exactamente estas mismas cadenas por GPRS
+([`Gt06ProtocolEncoder.java`](https://github.com/traccar/traccar/blob/master/src/main/java/org/traccar/protocol/Gt06ProtocolEncoder.java)),
+así que **no necesitas mandarlo por SMS**: te sale gratis desde la aplicación.
+
+> ⚠️ **Verificar contra tu unidad:** la contraseña de comandos. La lista de
+> GPS-Trace documenta `000000` por omisión y **desactivada** (se activa con
+> `PWDSW,ON#`), mientras que varias guías de GT06N dan `123456`. No adivines:
+> manda `PARAM#` y mira qué contesta. Si responde sin pedirte contraseña, está
+> desactivada y no necesitas ninguna.
 
 ---
 
@@ -332,24 +446,58 @@ el de reinicio, que varían mucho entre clones H02.
 
 ### GPS103 · Coban TK103 y familia
 
-**Fuente:** manual de usuario Coban GPS103-A/B y TK103.
-Contraseña por omisión: **`123456`**. **Todo en minúsculas**, sin comas.
+**Fuente:** [manual de usuario Coban TK103A/TK103B](http://gpsrf.ru/download/usermanual_tk103b_eng.pdf)
+(la familia GPS103 comparte el juego de comandos). Contraseña por omisión:
+**`123456`**. **Todo pegado, sin comas**, y la contraseña va justo después del
+comando sin espacio.
 
-| Qué hace | Comando | Ejemplo |
-|---|---|---|
-| Autorizar tu número (primero) | `begin` + contraseña | `begin123456` |
-| APN | `apn` + contraseña + espacio + APN | `apn123456 internet.itelcel.com` |
-| Usuario y contraseña del APN | `up` + contraseña + espacio + usuario + espacio + contraseña | `up123456 webgprs webgprs2002` |
-| Servidor | `adminip` + contraseña + espacio + IP + espacio + puerto | `adminip123456 203.0.113.10 5001` |
-| Reporte periódico | `fix` + intervalo + `***n` + contraseña | `fix030s***n123456` (cada 30 s) |
-| Consultar estado | `check` + contraseña | `check123456` |
-| Cambiar la contraseña | `password` + actual + espacio + nueva | `password123456 987654` |
+| Qué hace | Comando | Ejemplo | Responde |
+|---|---|---|---|
+| Autorizar tu número | `admin` + clave + espacio + teléfono | `admin123456 5215512345678` | `admin ok` |
+| APN | `apn` + clave + espacio + APN | `apn123456 internet.itelcel.com` | `APN OK` |
+| Usuario y clave del APN | `up` + clave + espacio + usuario + espacio + clave | `up123456 webgprs webgprs2002` | `user,password OK` |
+| **Servidor (IP y puerto)** | `adminip` + clave + espacio + IP + espacio + puerto | `adminip123456 203.0.113.10 5001` | `adminip OK` |
+| **Pasar a modo GPRS** ⭐ | `gprs` + clave | `gprs123456` | `GPRS ok!` |
+| Reporte periódico | `fix` + intervalo + `***n` + clave | `fix030s***n123456` | |
+| Consultar estado | `check` + clave | `check123456` | batería, GPRS, GPS, ACC |
+| Consultar el IMEI | `imei` + clave | `imei123456` | los 15 dígitos |
+| Cambiar la contraseña | `password` + actual + espacio + nueva | `password123456 987654` | `password ok` |
+| Volver a modo SMS | `sms` + clave | `sms123456` | `SMS ok!` |
+
+> ⭐ **`gprs123456` no es opcional: es el paso que casi todos olvidan.** El
+> equipo sale de fábrica en **modo SMS**, no en modo GPRS. Puedes configurar
+> el APN y el servidor perfectamente y no llegará *nada* a Traccar hasta que
+> mandes este comando. Si tu unidad tiene APN y `adminip` bien puestos y aun
+> así no aparece, empieza por aquí.
+
+> 🚨 **`begin123456` NO autoriza tu número: hace un reset de fábrica.** El
+> manual es explícito — *"initialize all the settings to default factory
+> settings"*. Borra el APN y el servidor que acabas de configurar. Úsalo solo
+> a propósito, para partir de cero en un equipo de segunda mano, y **siempre
+> antes** de configurar nada. El comando que autoriza tu número es
+> `admin` + clave + espacio + teléfono.
+
+> ⚠️ **`adminip` solo acepta IP, no dominio.** El manual documenta únicamente
+> `IPAddress`, y no trae ningún comando de DNS. Esto **choca de frente con la
+> recomendación general de usar DDNS**: si tu IP pública cambia, esta unidad
+> deja de reportar hasta que le mandes otro SMS.
+>
+> Algunos firmwares de Coban aceptan un hostname aunque el manual no lo diga.
+> Pruébalo — `adminip123456 rastreo.midominio.duckdns.org 5001` — y **no te
+> fíes del `adminip OK`**: contesta lo mismo aunque no resuelva el nombre. La
+> prueba de verdad es ver el paquete llegar en
+> `pnpm infra:logs`. Anota el resultado en la tabla de inventario, porque
+> cambia tu plan de mantenimiento para esa unidad.
 
 El formato del intervalo es `fix<NNN><unidad>***n<contraseña>`, donde la unidad
-es `s` segundos, `m` minutos u `h` horas. `fix030s***n123456` = cada 30 segundos.
+es `s` segundos, `m` minutos u `h` horas, el número va **en 3 dígitos** y el
+mínimo es **20 s**. `fix030s***n123456` = cada 30 segundos, indefinidamente.
+Con `005n` en vez de `***n` reporta solo 5 veces y para.
 
-> `begin123456` va **primero**: autoriza tu número como administrador. Sin eso,
-> varios modelos ignoran los demás comandos en silencio.
+**Corte de motor por SMS:** `stop123456` corta y `resume123456` restablece. El
+propio equipo se niega a ejecutarlo por encima de **20 km/h**: contesta
+*"It will be executed after speed less than 20km/h"* y espera. Esta aplicación
+es más estricta todavía (5 km/h) y lo envía por GPRS, sin SMS.
 
 ---
 
@@ -936,21 +1084,25 @@ unidad.
 > hardware concreto y los números de SIM son datos personales. Llénala en una
 > copia local, o mueve el archivo a uno que esté en `.gitignore`.
 
-| # | Vehículo | Marca/modelo | IMEI | Protocolo | Puerto | SIM / Operador | APN | Servidor Ruhavik (reversa) | Estado |
-|---|---|---|---|---|---|---|---|---|---|
-| 1 | | | | | | | | | ⬜ pendiente |
-| 2 | | | | | | | | | ⬜ pendiente |
-| 3 | | | | | | | | | ⬜ pendiente |
-| 4 | | | | | | | | | ⬜ pendiente |
-| 5 | | | | | | | | | ⬜ pendiente |
-| 6 | | | | | | | | | ⬜ pendiente |
-| 7 | | | | | | | | | ⬜ pendiente |
-| 8 | | | | | | | | | ⬜ pendiente |
-| 9 | | | | | | | | | ⬜ pendiente |
-| 10 | | | | | | | | | ⬜ pendiente |
+| # | Vehículo | Marca/modelo | IMEI | Protocolo | Puerto | ¿Acepta dominio? | SIM / Operador | APN | Servidor Ruhavik (reversa) | Estado |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | | **Concox GT06N** | | `gt06` | **5023** | sí (`SERVER,1,…`) | | | | ⬜ pendiente |
+| 2 | | **Coban GPS103-B** | | `gps103` | **5001** | ❓ comprobar | | | | ⬜ pendiente |
+| 3 | | | | | | | | | | ⬜ pendiente |
+| 4 | | | | | | | | | | ⬜ pendiente |
+| 5 | | | | | | | | | | ⬜ pendiente |
+| 6 | | | | | | | | | | ⬜ pendiente |
+| 7 | | | | | | | | | | ⬜ pendiente |
+| 8 | | | | | | | | | | ⬜ pendiente |
+| 9 | | | | | | | | | | ⬜ pendiente |
+| 10 | | | | | | | | | | ⬜ pendiente |
 
 **Estados:** ⬜ pendiente · 🔵 identificado · 🟡 configurado, en prueba ·
 🟢 reportando estable · 🔴 con problema
+
+**¿Acepta dominio?** Si la unidad solo admite IP, apúntalo aquí: son las que
+tendrás que reconfigurar por SMS cada vez que cambie tu IP pública. Compruébalo
+viendo llegar la trama en el log, no por la respuesta `ok` del equipo.
 
 ---
 
@@ -963,4 +1115,7 @@ unidad.
 - [`PortConfigSuffix.java`](https://github.com/traccar/traccar/blob/master/src/main/java/org/traccar/config/PortConfigSuffix.java) — puertos por omisión
 - [Wiki de Teltonika — FMB920 First Start](https://wiki.teltonika-gps.com/view/FMB920_First_Start)
 - [Manual SinoTrack ST-901](https://manuals.plus/sinotrack/st-901-gps-tracker-manual)
-- Manuales de usuario Concox GT06N y Coban GPS103-A/B
+- [Manual de usuario Coban TK103A/TK103B](http://gpsrf.ru/download/usermanual_tk103b_eng.pdf) — familia GPS103
+- [Lista de comandos GT06 — GPS-Trace](https://content.gps-trace.com/assets/96c6ed6a-2598-4605-8b25-2a38e70664a8)
+- [Configurar un Concox GT06 — AVLView](https://app.avlview.com/help/supported-devices/concox-configure-gt-06-gps-device/)
+- [`Gps103ProtocolEncoder.java`](https://github.com/traccar/traccar/blob/master/src/main/java/org/traccar/protocol/Gps103ProtocolEncoder.java) y [`Gt06ProtocolEncoder.java`](https://github.com/traccar/traccar/blob/master/src/main/java/org/traccar/protocol/Gt06ProtocolEncoder.java) — comandos que Traccar envía por GPRS
