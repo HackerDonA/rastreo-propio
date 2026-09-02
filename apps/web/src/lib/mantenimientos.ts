@@ -2,7 +2,7 @@
  * Tipos y cliente HTTP del módulo de mantenimientos.
  */
 
-const API_URL: string = import.meta.env['VITE_API_URL'] ?? 'http://localhost:4000';
+const API_URL: string = import.meta.env['VITE_API_URL'] ?? 'http://127.0.0.1:4000';
 
 export type Dimension = 'km' | 'date' | 'hours';
 export type NivelAviso = 'ok' | 'due_soon' | 'overdue';

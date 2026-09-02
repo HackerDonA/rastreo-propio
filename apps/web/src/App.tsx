@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { JSX } from 'react';
 
-import { actualizarUnidad } from './lib/api.ts';
+import { actualizarUnidad, API_URL } from './lib/api.ts';
 import {
   obtenerFichas,
   obtenerGeocercas,
@@ -235,8 +235,13 @@ export function App(): JSX.Element {
             </p>
             <p>
               2.{' '}
-              <code className="rounded bg-black/5 px-1 py-0.5 dark:bg-white/10">pnpm dev</code>{' '}
-              — la API en el puerto 3000
+              <code className="rounded bg-black/5 px-1 py-0.5 dark:bg-white/10">
+                .\iniciar.ps1
+              </code>{' '}
+              — la API debe responder en{' '}
+              <code className="rounded bg-black/5 px-1 py-0.5 dark:bg-white/10">
+                {API_URL}/health
+              </code>
             </p>
             <p>
               3. <code className="rounded bg-black/5 px-1 py-0.5 dark:bg-white/10">.env</code> —

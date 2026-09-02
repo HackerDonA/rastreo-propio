@@ -7,8 +7,23 @@
 
 import type { FleetSummary, Unit } from './tipos.ts';
 
-const API_URL: string = import.meta.env['VITE_API_URL'] ?? 'http://localhost:4000';
-const WS_URL: string = import.meta.env['VITE_WS_URL'] ?? 'ws://localhost:4000/ws';
+/*
+ * Direccion de la API.
+ *
+ * Va con 127.0.0.1 y NO con localhost, y no es lo mismo en Windows.
+ *
+ * `localhost` resuelve primero a ::1 (IPv6). El servidor de Vite escucha en
+ * `::`, asi que la pagina carga por IPv6 sin problema; pero la API escucha en
+ * 127.0.0.1, que es solo IPv4. El navegador intenta ::1:4000, no encuentra a
+ * nadie, y la peticion falla antes de salir: se ve como "no se pudo contactar
+ * a la API" con la API perfectamente encendida.
+ *
+ * Se exporta para que la pantalla de error pueda mostrar la URL real en vez de
+ * un puerto escrito a mano, que es exactamente lo que se quedo desfasado
+ * cuando la API se movio del 3000 al 4000.
+ */
+export const API_URL: string = import.meta.env['VITE_API_URL'] ?? 'http://127.0.0.1:4000';
+const WS_URL: string = import.meta.env['VITE_WS_URL'] ?? 'ws://127.0.0.1:4000/ws';
 
 export class ApiError extends Error {
   constructor(
