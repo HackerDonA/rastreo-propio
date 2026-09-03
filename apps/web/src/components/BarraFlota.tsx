@@ -74,7 +74,7 @@ export function BarraFlota({
   }, [unidades]);
 
   return (
-    <header className="borde panel segura-arriba segura-lados flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 border-b px-3 pb-2.5 sm:gap-x-6 sm:px-4">
+    <header className="borde panel segura-arriba segura-lados flex shrink-0 items-center gap-x-3 border-b px-3 pb-2.5 md:flex-wrap md:gap-x-6 md:px-4">
       <div className="flex items-center gap-2.5">
         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 text-white">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4.5 w-4.5" aria-hidden="true">
@@ -84,13 +84,26 @@ export function BarraFlota({
         </div>
         <div>
           <h1 className="text-sm leading-tight font-semibold">Rastreo</h1>
-          <p className="texto-suave text-xs leading-tight">Monitoreo de flota</p>
+          <p className="texto-suave hidden text-xs leading-tight md:block">
+            Monitoreo de flota
+          </p>
         </div>
       </div>
 
-      <div className="borde hidden h-9 w-px bg-current opacity-10 sm:block" />
+      <div className="borde hidden h-9 w-px bg-current opacity-10 md:block" />
 
-      <div className="flex flex-1 flex-wrap items-center gap-x-6 gap-y-2">
+      {/*
+        Indicadores. Ocultos en telefono.
+
+        Con seis cifras y `flex-wrap`, en una pantalla de 390 px la cabecera
+        pasaba de un renglon a tres y se comia un tercio del mapa, que es
+        justo lo unico que se quiere ver en un telefono. En escritorio caben
+        de sobra en una sola linea y son lo mejor de la barra.
+
+        El resumen de la flota no se pierde: aparece dentro de la hoja de
+        unidades, que es adonde se va cuando se quiere ese dato.
+      */}
+      <div className="hidden flex-1 flex-wrap items-center gap-x-6 gap-y-2 md:flex">
         <Indicador etiqueta="Unidades" valor={String(unidades.length)} />
         <Indicador
           etiqueta="En movimiento"
@@ -111,7 +124,7 @@ export function BarraFlota({
         />
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="ml-auto flex items-center gap-1.5 md:ml-0 md:gap-3">
         <div
           className="borde flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs"
           /*

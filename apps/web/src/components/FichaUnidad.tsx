@@ -42,7 +42,12 @@ export function FichaUnidad({
 
   return (
     <div
-      className="borde panel absolute right-4 bottom-8 z-10 w-[min(21rem,calc(100%-2rem))]
+      /*
+        En telefono ocupa todo el ancho y se pega al borde inferior, que es
+        donde llega el pulgar. Una tarjeta flotante de 21 rem en una pantalla
+        de 390 px deja margenes inutiles a los lados y aleja los botones.
+      */
+      className="borde panel absolute inset-x-3 bottom-3 z-10 md:inset-x-auto md:right-4 md:bottom-8 md:w-[min(21rem,calc(100%-2rem))]
                  rounded-2xl border p-4 sombra-alta"
     >
       <div className="mb-3 flex items-start justify-between gap-3">

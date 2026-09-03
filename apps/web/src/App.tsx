@@ -10,6 +10,8 @@ import {
   type PuntoHistorial,
 } from './lib/flota-api.ts';
 import { BarraFlota } from './components/BarraFlota.tsx';
+import { BarraInferior } from './components/BarraInferior.tsx';
+import { HojaMovil } from './components/HojaMovil.tsx';
 import { CentroAvisos } from './components/CentroAvisos.tsx';
 import { FichaVehiculo } from './components/FichaVehiculo.tsx';
 import { PanelComandos } from './components/PanelComandos.tsx';
@@ -20,6 +22,7 @@ import { FichaUnidad } from './components/FichaUnidad.tsx';
 import { CAPAS, MapaEnVivo, type CapaMapa } from './components/MapaEnVivo.tsx';
 import { PanelMantenimientos } from './components/PanelMantenimientos.tsx';
 import { PanelUnidades } from './components/PanelUnidades.tsx';
+import { useEsMovil } from './lib/media.ts';
 import { useFlota } from './lib/useFlota.ts';
 import type { Categoria } from './lib/vehiculos.ts';
 
@@ -42,6 +45,7 @@ function nombresIniciales(): boolean {
 export function App(): JSX.Element {
   const { unidades, carga, error, enVivo, recargar, aplicarUnidad, eventosEntrantes } =
     useFlota();
+  const esMovil = useEsMovil();
   const [seleccionada, setSeleccionada] = useState<number | null>(null);
   const [oscuro, setOscuro] = useState(temaInicial);
   const [panelAbierto, setPanelAbierto] = useState(false);
@@ -178,6 +182,14 @@ export function App(): JSX.Element {
     setSeleccionada(deviceId);
   }, []);
 
+  // Resumen de la flota para la hoja de movil. Son tres filtros sobre un
+  // arreglo de diez elementos: memorizarlos costaria mas que recalcularlos.
+  const enMovimiento = unidades.filter((u) => u.state === 'moving').length;
+  const detenidas = unidades.filter((u) => u.state === 'stopped').length;
+  const sinSenal = unidades.filter(
+    (u) => u.state === 'offline' || u.state === 'unknown',
+  ).length;
+
   const unidadSeleccionada = unidades.find((u) => u.id === seleccionada) ?? null;
   const fichaSeleccionada =
     seleccionada === null ? null : (fichas.get(seleccionada) ?? null);
@@ -187,6 +199,68 @@ export function App(): JSX.Element {
     comandosDe === null ? null : (unidades.find((u) => u.id === comandosDe) ?? null);
   const unidadCompartir =
     compartirDe === null ? null : (unidades.find((u) => u.id === compartirDe) ?? null);
+
+  /*
+   * Contenido del panel de unidades y zonas.
+   *
+   * Se declara una sola vez porque es identico en las dos plataformas; lo que
+   * cambia es el envoltorio: un panel fijo a la izquierda en escritorio, una
+   * hoja arrastrable desde abajo en telefono.
+   */
+  const pestanasPanel = (
+    <nav className="borde flex shrink-0 border-b" aria-label="Panel lateral">
+      {([
+        { id: 'unidades', etiqueta: `Unidades (${String(unidades.length)})` },
+        { id: 'zonas', etiqueta: `Zonas (${String(geocercas.length)})` },
+      ] as const).map((t) => (
+        <button
+          key={t.id}
+          type="button"
+          onClick={() => {
+            setPestanaLateral(t.id);
+          }}
+          aria-current={pestanaLateral === t.id ? 'true' : undefined}
+          className={`toque -mb-px flex-1 border-b-2 px-2 text-xs font-medium transition ${
+            pestanaLateral === t.id
+              ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400'
+              : 'texto-suave border-transparent hover:border-black/15 dark:hover:border-white/20'
+          }`}
+        >
+          {t.etiqueta}
+        </button>
+      ))}
+    </nav>
+  );
+
+  const cuerpoPanel =
+    pestanaLateral === 'zonas' ? (
+      <PanelGeocercas
+        geocercas={geocercas}
+        unidades={unidades}
+        modo={modoDibujo}
+        puntos={puntosDibujo}
+        onCambiarModo={setModoDibujo}
+        onLimpiarPuntos={limpiarPuntos}
+        onQuitarUltimoPunto={quitarUltimoPunto}
+        onRecargar={recargarGeocercas}
+        onCentrarEn={centrarEnAnillo}
+      />
+    ) : carga === 'cargando' ? (
+      <div className="space-y-3 p-4">
+        {Array.from({ length: 6 }, (_, i) => (
+          <div key={i} className="animate-pulse space-y-2">
+            <div className="h-3.5 w-2/3 rounded bg-black/8 dark:bg-white/10" />
+            <div className="h-2.5 w-1/2 rounded bg-black/6 dark:bg-white/6" />
+          </div>
+        ))}
+      </div>
+    ) : (
+      <PanelUnidades
+        unidades={unidades}
+        seleccionada={seleccionada}
+        onSeleccionar={seleccionar}
+      />
+    );
 
   // Vista previa del circulo mientras se dibuja: se calcula igual que en el
   // backend para que lo que se ve sea lo que se guarda.
@@ -279,8 +353,12 @@ export function App(): JSX.Element {
         desplazamiento, que en movil no hace falta y en escritorio robaria
         altura a un elemento de 44 px.
       */}
+      {/*
+        Pestanas de arriba: SOLO escritorio. En telefono esta navegacion vive
+        en la barra inferior, al alcance del pulgar. Ver BarraInferior.tsx.
+      */}
       <nav
-        className="borde panel segura-lados flex shrink-0 gap-1 overflow-x-auto border-b px-3 [scrollbar-width:none] sm:px-4 [&::-webkit-scrollbar]:hidden"
+        className="borde panel segura-lados hidden shrink-0 gap-1 overflow-x-auto border-b px-3 [scrollbar-width:none] sm:px-4 md:flex [&::-webkit-scrollbar]:hidden"
         aria-label="Secciones"
       >
         {([
@@ -339,81 +417,23 @@ export function App(): JSX.Element {
         </div>
       ) : (
       <div className="relative flex min-h-0 flex-1">
-        {/* Panel lateral. En pantallas chicas se convierte en un cajon. */}
-        <aside
-          className={`borde panel segura-abajo absolute inset-y-0 left-0 z-20 w-[min(20rem,85vw)] border-r transition-transform
-                      md:relative md:w-80 md:translate-x-0 ${
-                        panelAbierto ? 'translate-x-0 sombra-alta' : '-translate-x-full'
-                      }`}
-        >
+        {/*
+          Panel lateral. SOLO escritorio.
+
+          En telefono este mismo contenido va dentro de una hoja que sube desde
+          abajo, mas abajo en este archivo. No es el mismo panel con otro CSS:
+          la hoja se arrastra, atrapa el foco y tiene su propio encabezado, asi
+          que son dos arboles distintos y se monta uno u otro segun la pantalla.
+        */}
+        <aside className="borde panel hidden w-80 shrink-0 border-r md:block">
           <div className="flex h-full flex-col">
-            <nav className="borde flex shrink-0 border-b" aria-label="Panel lateral">
-              {([
-                { id: 'unidades', etiqueta: `Unidades (${String(unidades.length)})` },
-                { id: 'zonas', etiqueta: `Zonas (${String(geocercas.length)})` },
-              ] as const).map((t) => (
-                <button
-                  key={t.id}
-                  type="button"
-                  onClick={() => {
-                    setPestanaLateral(t.id);
-                  }}
-                  aria-current={pestanaLateral === t.id ? 'true' : undefined}
-                  className={`toque -mb-px flex-1 border-b-2 px-2 text-xs font-medium transition ${
-                    pestanaLateral === t.id
-                      ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400'
-                      : 'texto-suave border-transparent hover:border-black/15 dark:hover:border-white/20'
-                  }`}
-                >
-                  {t.etiqueta}
-                </button>
-              ))}
-            </nav>
+            {pestanasPanel}
 
             <div className="min-h-0 flex-1">
-              {pestanaLateral === 'zonas' ? (
-                <PanelGeocercas
-                  geocercas={geocercas}
-                  unidades={unidades}
-                  modo={modoDibujo}
-                  puntos={puntosDibujo}
-                  onCambiarModo={setModoDibujo}
-                  onLimpiarPuntos={limpiarPuntos}
-                  onQuitarUltimoPunto={quitarUltimoPunto}
-                  onRecargar={recargarGeocercas}
-                  onCentrarEn={centrarEnAnillo}
-                />
-              ) : carga === 'cargando' ? (
-                <div className="space-y-3 p-4">
-                  {Array.from({ length: 6 }, (_, i) => (
-                    <div key={i} className="animate-pulse space-y-2">
-                      <div className="h-3.5 w-2/3 rounded bg-black/8 dark:bg-white/10" />
-                      <div className="h-2.5 w-1/2 rounded bg-black/6 dark:bg-white/6" />
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <PanelUnidades
-                  unidades={unidades}
-                  seleccionada={seleccionada}
-                  onSeleccionar={seleccionar}
-                />
-              )}
+              {cuerpoPanel}
             </div>
           </div>
         </aside>
-
-        {/* Velo para cerrar el cajon en movil */}
-        {panelAbierto && (
-          <button
-            type="button"
-            aria-label="Cerrar lista de unidades"
-            onClick={() => {
-              setPanelAbierto(false);
-            }}
-            className="absolute inset-0 z-10 bg-black/40 md:hidden"
-          />
-        )}
 
         <main className="relative min-w-0 flex-1">
           <MapaEnVivo
@@ -571,8 +591,64 @@ export function App(): JSX.Element {
             </div>
           )}
         </main>
+
+        {/*
+          La misma lista, en el envoltorio que corresponde al telefono. Se monta
+          solo en movil: tener las dos a la vez duplicaria los `aria-label` y
+          dejaria botones invisibles al alcance del lector de pantalla.
+        */}
+        {esMovil && (
+          <HojaMovil
+            abierta={panelAbierto}
+            onCerrar={() => {
+              setPanelAbierto(false);
+            }}
+            titulo={pestanaLateral === 'zonas' ? 'Zonas' : 'Unidades'}
+          >
+            <div className="flex h-full flex-col">
+              {/*
+                Resumen de la flota. En escritorio vive en la barra de arriba;
+                aqui recupera su sitio, y ademas es el correcto: se consulta al
+                abrir la lista, no mirando el mapa.
+              */}
+              {pestanaLateral === 'unidades' && (
+                <div className="borde flex shrink-0 gap-2 border-b px-4 py-2.5 text-xs">
+                  {(
+                    [
+                      { etiqueta: 'En movimiento', valor: enMovimiento, color: '#16a34a' },
+                      { etiqueta: 'Detenidas', valor: detenidas, color: '#d97706' },
+                      { etiqueta: 'Sin señal', valor: sinSenal, color: '#64748b' },
+                    ] as const
+                  ).map((c) => (
+                    <div
+                      key={c.etiqueta}
+                      className="panel-suave borde flex-1 rounded-lg border px-2 py-1.5 text-center"
+                    >
+                      <div
+                        className="text-base leading-tight font-semibold tabular-nums"
+                        style={{ color: c.color }}
+                      >
+                        {c.valor}
+                      </div>
+                      <div className="texto-suave leading-tight">{c.etiqueta}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {pestanasPanel}
+              <div className="min-h-0 flex-1 overflow-y-auto">{cuerpoPanel}</div>
+            </div>
+          </HojaMovil>
+        )}
       </div>
       )}
+
+      {/*
+        Navegacion principal del telefono. Va fuera del bloque de cada vista
+        porque acompana a las tres, y al final del arbol para quedar por encima
+        del mapa sin necesidad de pelear con z-index.
+      */}
+      <BarraInferior vista={vista} onCambiar={setVista} />
 
       {unidadCompartir !== null && (
         <PanelCompartir
