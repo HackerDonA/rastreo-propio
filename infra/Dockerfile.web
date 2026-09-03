@@ -1,0 +1,58 @@
+# =============================================================================
+#  Imagen del frontend + proxy inverso (Caddy)
+# =============================================================================
+#  Se construye desde la RAIZ del repositorio:
+#
+#      docker build -f infra/Dockerfile.web -t rastreo-web .
+#
+#  El resultado NO es solo el frontend: es Caddy sirviendo los archivos
+#  estaticos y, a la vez, haciendo de proxy hacia la API en /api y /ws.
+#
+#  POR QUE JUNTOS Y NO EN DOS CONTENEDORES
+#  ---------------------------------------
+#  Porque el navegador tiene que ver UN SOLO ORIGEN. La cookie de sesion es
+#  `SameSite=Strict`: si el frontend y la API viven en dominios distintos, el
+#  navegador guarda la cookie y no la vuelve a mandar, y la aplicacion echa al
+#  usuario a la pantalla de acceso justo despues de entrar. Es exactamente el
+#  fallo que costo media tarde en desarrollo.
+#
+#  Ademas Caddy consigue y renueva el certificado de Let's Encrypt solo: no hay
+#  que correr certbot ni programar renovaciones.
+# =============================================================================
+
+# ----------------------------------------------------------------------------
+#  Etapa 1 - compilar el frontend
+# ----------------------------------------------------------------------------
+FROM node:22-alpine AS builder
+
+RUN corepack enable
+WORKDIR /repo
+
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
+COPY apps/api/package.json apps/api/
+COPY apps/web/package.json apps/web/
+
+RUN pnpm install --frozen-lockfile --filter @rastreo/web...
+
+COPY tsconfig.base.json ./
+COPY apps/web apps/web
+
+# VITE_API_URL y VITE_WS_URL se quedan VACIAS a proposito: significan "el mismo
+# origen que la pagina". Como Caddy sirve el frontend y la API bajo un unico
+# dominio, es la configuracion correcta y no hay que pasar nada por build-arg.
+#
+# Ojo: las variables VITE_ se hornean en el bundle al compilar, no se leen al
+# arrancar. Poner aqui una URL fija ataria la imagen a un dominio concreto.
+RUN pnpm --filter @rastreo/web build
+
+# ----------------------------------------------------------------------------
+#  Etapa 2 - servir
+# ----------------------------------------------------------------------------
+FROM caddy:2-alpine
+
+COPY --from=builder /repo/apps/web/dist /srv
+COPY infra/Caddyfile.prod /etc/caddy/Caddyfile
+
+EXPOSE 80 443
+
+# La imagen de Caddy ya trae su propio ENTRYPOINT y CMD correctos.

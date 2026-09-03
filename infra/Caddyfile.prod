@@ -1,0 +1,71 @@
+# =============================================================================
+#  Caddyfile que va DENTRO del contenedor rastreo-web
+# =============================================================================
+#  No se edita a mano en el servidor: el dominio entra por la variable DOMINIO
+#  del .env, y Caddy la lee con {$DOMINIO}. Asi la misma imagen sirve para
+#  cualquier dominio y no hay que reconstruirla para cambiarlo.
+#
+#  Si DOMINIO viene vacio, compose lo sustituye por ":80" antes de llegar aqui.
+#  Eso es lo que se quiere para probar en local: sin dominio no hay certificado
+#  que pedir, y Caddy no debe intentar hablar con Let's Encrypt.
+#
+#  La sustitucion se hace en compose y NO aqui con `{$DOMINIO::80}` porque el
+#  valor por omision de Caddy solo aplica si la variable NO EXISTE. Definida y
+#  vacia -que es como llega desde un .env- se sustituye por nada, el bloque se
+#  queda sin direccion, y Caddy lo lee como un bloque de opciones globales:
+#  "unrecognized global option: handle".
+#
+#  LOS RASTREADORES NO PASAN POR AQUI. Los GPS abren un socket TCP crudo -no
+#  HTTP- contra los puertos 5001 y 5023, que van directos al contenedor de
+#  Traccar. Ver docs/02-conectar-mis-gps.md seccion (h).
+# =============================================================================
+
+{$DOMINIO} {
+	# ---- API ---------------------------------------------------------------
+	# `handle` y no `handle_path`: la API espera las rutas COMPLETAS, con el
+	# /api delante. handle_path lo recortaria y todo daria 404.
+	handle /api/* {
+		reverse_proxy api:4000
+	}
+
+	# ---- WebSocket ---------------------------------------------------------
+	# Caddy detecta y reenvia el upgrade solo; no hace falta la configuracion
+	# extra que pide nginx.
+	handle /ws {
+		reverse_proxy api:4000
+	}
+
+	# ---- Frontend ----------------------------------------------------------
+	handle {
+		root * /srv
+
+		# try_files es lo que hace funcionar los enlaces compartidos. La
+		# aplicacion los sirve en /c/<token>, y esa ruta NO existe como archivo:
+		# la resuelve el JavaScript ya cargado. Sin esta linea, abrir un enlace
+		# directamente -que es justo como llega a quien lo recibe- daria 404.
+		try_files {path} /index.html
+
+		file_server
+		encode zstd gzip
+	}
+
+	# ---- Cabeceras de seguridad -------------------------------------------
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+
+	# Los recursos del build llevan un hash en el nombre, asi que su contenido
+	# nunca cambia: se pueden cachear para siempre. El index.html NO, o un
+	# despliegue nuevo tardaria un ano en verse.
+	@conHash path /assets/*
+	header @conHash Cache-Control "public, max-age=31536000, immutable"
+
+	log {
+		output stdout
+		format console
+	}
+}

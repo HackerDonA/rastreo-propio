@@ -1,0 +1,41 @@
+# Lo que NO debe entrar al contexto de construccion de las imagenes.
+#
+# Importa por dos razones. La primera es velocidad: sin esto, Docker empaqueta
+# los node_modules del host -cientos de megabytes- y los manda al demonio en
+# cada build.
+#
+# La segunda es correccion: los node_modules de Windows traen binarios
+# compilados para Windows, y las imagenes son Linux. Copiarlos produce fallos
+# desconcertantes en tiempo de ejecucion en vez de un error claro al construir.
+
+node_modules
+**/node_modules
+
+# Artefactos de compilacion: se generan dentro de la imagen, siempre frescos.
+dist
+**/dist
+*.tsbuildinfo
+**/*.tsbuildinfo
+
+# SECRETOS. El .env se inyecta al arrancar el contenedor, nunca se hornea en la
+# imagen: una imagen con credenciales dentro las lleva a cualquier registro
+# donde se publique.
+.env
+.env.*
+!.env.example
+
+# Respaldos: pesados y con datos reales de la flota.
+backups
+
+# No aportan nada a la imagen.
+.git
+.github
+.vscode
+docs
+*.md
+!README.md
+scripts/*.ps1
+iniciar.ps1
+detener.ps1
+iniciar.cmd
+detener.cmd

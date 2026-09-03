@@ -1,0 +1,90 @@
+# =============================================================================
+#  Imagen del BFF (la API de Fastify)
+# =============================================================================
+#  Se construye desde la RAIZ del repositorio, no desde infra/:
+#
+#      docker build -f infra/Dockerfile.api -t rastreo-api .
+#
+#  Tiene que ser asi porque esto es un monorepo de pnpm: la API depende del
+#  pnpm-lock.yaml y del pnpm-workspace.yaml, que viven arriba.
+# =============================================================================
+
+# ----------------------------------------------------------------------------
+#  Etapa 1 - construccion
+# ----------------------------------------------------------------------------
+FROM node:22-alpine AS builder
+
+# corepack trae la version de pnpm que declara el packageManager del
+# package.json raiz. Sin esto habria que fijar la version a mano aqui tambien,
+# y tarde o temprano las dos se desincronizan.
+RUN corepack enable
+
+WORKDIR /repo
+
+# Los manifiestos ANTES que el codigo, a proposito.
+#
+# Docker cachea cada capa: mientras el lock no cambie, la instalacion de
+# dependencias -que es lo lento- se reutiliza aunque se toque el codigo. Si se
+# copiara todo de una vez, cualquier cambio en un .ts obligaria a reinstalar
+# todo el arbol de dependencias.
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
+COPY apps/api/package.json apps/api/
+COPY apps/web/package.json apps/web/
+
+# --frozen-lockfile falla si el lock no corresponde con los package.json, en
+# vez de "arreglarlo" en silencio. En un build reproducible eso es lo que se
+# quiere: que una discrepancia sea un error visible y no una version distinta.
+RUN pnpm install --frozen-lockfile --filter @rastreo/api...
+
+COPY tsconfig.base.json ./
+COPY apps/api apps/api
+
+RUN pnpm --filter @rastreo/api build
+
+# `pnpm deploy` arma una copia autocontenida del paquete con sus dependencias
+# de produccion ya resueltas: sin enlaces al almacen de pnpm ni al resto del
+# monorepo, que es justo lo que hace falta para copiarla a una imagen limpia.
+#
+# `--legacy` hace falta desde pnpm 10: por omision solo despliega workspaces con
+# `inject-workspace-packages=true`. Aqui es lo correcto y no cambia nada, porque
+# la API no depende de ningun otro paquete del monorepo, solo de librerias
+# externas; no hay nada que inyectar.
+RUN pnpm deploy --filter @rastreo/api --prod --legacy /salida
+
+# ----------------------------------------------------------------------------
+#  Etapa 2 - ejecucion
+# ----------------------------------------------------------------------------
+FROM node:22-alpine
+
+# tini como PID 1. Node no reenvia bien las senales cuando es el proceso 1, asi
+# que sin esto un `docker stop` acaba en SIGKILL a los 10 segundos y el apagado
+# ordenado del servidor -cerrar el pool de PostgreSQL, el WebSocket- no llega a
+# ejecutarse.
+RUN apk add --no-cache tini
+
+WORKDIR /app
+
+COPY --from=builder --chown=node:node /salida ./
+
+# Las migraciones se leen en tiempo de ejecucion desde `dist/../migrations`
+# (ver apps/api/src/migrate.ts). `pnpm deploy` copia el paquete entero, asi que
+# ya vienen; esto lo deja explicito y falla al construir si algun dia dejan de
+# estar, en vez de fallar al arrancar en produccion.
+RUN test -d /app/migrations || (echo 'FALTAN las migraciones en la imagen' && exit 1)
+
+ENV NODE_ENV=production
+ENV API_HOST=0.0.0.0
+ENV API_PORT=4000
+
+# Usuario sin privilegios. La imagen de node ya trae el usuario `node`.
+USER node
+
+EXPOSE 4000
+
+# El healthcheck usa la sonda real de la aplicacion, que comprueba PostgreSQL y
+# el enlace con Traccar, no un simple "el puerto responde".
+HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
+  CMD node -e "fetch('http://127.0.0.1:4000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+
+ENTRYPOINT ["/sbin/tini", "--"]
+CMD ["node", "dist/server.js"]

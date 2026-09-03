@@ -152,7 +152,68 @@ antes de arrancar Caddy (necesita el 80 para validar el certificado).
 
 ---
 
-## Paso 4.5 · Que la API sobreviva a un reinicio
+## Paso 4 bis · Todo en un comando (recomendado)
+
+Los pasos 4 y 4.5 describen el montaje a mano: instalar Node y pnpm en el
+servidor, compilar allí, y mantener vivos dos procesos con systemd. Funciona, y
+compilar en una Raspberry Pi es lento y frágil.
+
+**La alternativa es una sola orden.** Desde la raíz del repositorio, en el
+servidor:
+
+```bash
+docker compose --env-file .env -f infra/docker-compose.prod.yml up -d --build
+```
+
+Eso levanta las cuatro piezas —PostgreSQL, Traccar, la API y Caddy con el
+frontend— cada una esperando a que la anterior esté *sana*, no solo «arriba».
+La Pi no necesita ni Node instalado: se compila dentro de las imágenes.
+
+Antes de arrancar, en el `.env`:
+
+| Variable | Qué poner |
+|---|---|
+| `DOMINIO` | Tu hostname DDNS. **Vacío** = HTTP en el puerto 80, para probar en local antes de salir a internet |
+| `AUTH_PASSWORD_HASH` | `pnpm hash-password`. Sin esto **la API se niega a arrancar** |
+| `AUTH_COOKIE_SECRET` | Sale del mismo comando |
+| `TRACCAR_API_TOKEN` | Se genera en la interfaz de Traccar |
+
+Con `DOMINIO` puesto, Caddy consigue y renueva el certificado de Let's Encrypt
+solo. No hay certbot ni tareas programadas que mantener.
+
+### Qué se publica y qué no
+
+| Puerto | Servicio | ¿Se publica? |
+|---|---|---|
+| 80 / 443 | Caddy | Sí — es la única puerta HTTP |
+| 5001 | `gps103` (Coban) | Sí — el rastreador habla TCP crudo y no puede pasar por Caddy |
+| 5023 | `gt06` (Concox) | Sí, por lo mismo |
+| 4000 | La API | **No.** Solo la alcanza Caddy por la red interna |
+| 8082 | Interfaz de Traccar | **No.** Da control total, incluido el corte de motor |
+| 5432 | PostgreSQL | **No.** Nunca |
+
+### Actualizar
+
+```bash
+git pull
+docker compose --env-file .env -f infra/docker-compose.prod.yml up -d --build
+```
+
+Los volúmenes sobreviven: la base de datos y los certificados no se tocan.
+
+> **Probado de extremo a extremo el 2026-09-03**, levantando este mismo stack en
+> local: los cuatro contenedores sanos, el frontend servido, `/c/<token>`
+> resuelto por la SPA, la API respondiendo por el proxy, **401 sin sesión** y
+> sesión válida tras entrar, el WebSocket rechazado sin sesión y conectado con
+> ella, y las cabeceras de seguridad en su sitio.
+
+Los nombres de contenedor son los mismos que en desarrollo
+(`rastreo-postgres`, `rastreo-traccar`), a propósito: así `backup.sh` y
+`restore.sh` funcionan igual en el servidor sin cambiar un parámetro.
+
+---
+
+## Paso 4.5 · Que la API sobreviva a un reinicio *(solo si NO usas contenedores)*
 
 Traccar y PostgreSQL ya se levantan solos: Docker Compose los declara con
 `restart: unless-stopped`. **El BFF no.** Arrancado a mano con `pnpm start`
@@ -334,7 +395,8 @@ resumen:
 - [ ] Admin de Traccar creado con contraseña propia
 - [ ] Token de API nuevo generado
 - [ ] Caddy sirviendo HTTPS con certificado válido
-- [ ] `rastreo-api.service` habilitado y **probado con un reinicio real**
+- [ ] Stack levantado con `docker-compose.prod.yml`, o bien
+      `rastreo-api.service` habilitado y **probado con un reinicio real**
 - [ ] Puertos reenviados: solo los necesarios
 - [ ] Puerto 8082 **no** publicado a internet
 - [ ] `protocols.enable` limitado a tus protocolos

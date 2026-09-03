@@ -1,0 +1,156 @@
+# =============================================================================
+#  Despliegue de PRODUCCION - todo en un comando
+# =============================================================================
+#  Levanta las cuatro piezas: PostgreSQL, Traccar, la API y Caddy con el
+#  frontend. Desde la raiz del repositorio:
+#
+#      docker compose --env-file .env -f infra/docker-compose.prod.yml up -d --build
+#
+#  POR QUE ESTE ARCHIVO Y NO EL DE DESARROLLO
+#  ------------------------------------------
+#  El de desarrollo solo levanta PostgreSQL y Traccar; la API y el frontend
+#  corren nativos en Windows con recarga en caliente, que es lo que se quiere
+#  mientras se programa.
+#
+#  En el servidor eso significaria instalar Node y pnpm en la Raspberry,
+#  compilar ahi -lento- y mantener vivos dos procesos con systemd. Aqui las dos
+#  cosas son imagenes: se reinician solas, se actualizan de una pieza, y la Pi
+#  no necesita ni Node instalado.
+#
+#  ANTES DE ARRANCAR hay que tener en el .env:
+#    - DOMINIO con tu hostname DDNS (si no, Caddy sirve por HTTP en el 80)
+#    - AUTH_PASSWORD_HASH   (pnpm hash-password). SIN ESTO LA API NO ARRANCA.
+#    - TRACCAR_API_TOKEN
+# =============================================================================
+
+name: rastreo
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: rastreo-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-traccar}
+      POSTGRES_USER: ${POSTGRES_USER:-traccar}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD es obligatoria}
+    volumes:
+      - postgres-datos:/var/lib/postgresql/data
+    # NO se publica el 5432. En desarrollo se expone en 127.0.0.1 para poder
+    # inspeccionar la base; en produccion solo lo alcanzan los contenedores de
+    # esta red, que es lo unico que hace falta.
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-traccar} -d ${POSTGRES_DB:-traccar}']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  traccar:
+    image: traccar/traccar:6.15.3-alpine
+    container_name: rastreo-traccar
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      CONFIG_USE_ENVIRONMENT_VARIABLES: 'true'
+      DATABASE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-traccar}
+      DATABASE_USER: ${POSTGRES_USER:-traccar}
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - ./traccar.xml:/opt/traccar/conf/traccar.xml:ro
+      - traccar-registros:/opt/traccar/logs
+    ports:
+      # Puertos de PROTOCOLO. Estos SI van a 0.0.0.0: los rastreadores llegan
+      # desde internet por reenvio del router, y hablan TCP crudo, no HTTP, asi
+      # que no pueden pasar por Caddy.
+      #
+      # Solo los dos que se usan. Cada puerto abierto es superficie de ataque,
+      # y anadir uno cuando llegue otro equipo cuesta una linea.
+      - '${PORT_GPS103:-5001}:5001'   # Coban GPS103-B
+      - '${PORT_GT06:-5023}:5023'     # Concox GT06N
+      #
+      # El 8082 (interfaz web de Traccar) NO se publica. Da control total sobre
+      # todas las unidades, incluido el corte de motor. Se alcanza desde la red
+      # interna, y si hace falta desde fuera se pone tras Caddy con basic_auth.
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -q --spider http://localhost:8082/api/server || exit 1']
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  api:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile.api
+    image: rastreo-api:local
+    container_name: rastreo-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      traccar:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      # 0.0.0.0 dentro del contenedor NO es exponerla a internet: el puerto no
+      # se publica, asi que solo la alcanza Caddy por la red interna. La
+      # salvaguarda de arranque exige contrasena en cuanto el host no es local,
+      # que es justo lo que se quiere aqui.
+      API_HOST: 0.0.0.0
+      API_PORT: 4000
+      # La API se conecta con variables sueltas, NO con una DATABASE_URL: asi
+      # lo define su esquema de configuracion (apps/api/src/config.ts). Pasarle
+      # una DATABASE_URL la deja arrancar y fallar por POSTGRES_PASSWORD, que
+      # es un mensaje desconcertante cuando la contrasena si esta en el .env.
+      #
+      # `postgres` y `traccar` son los nombres de los servicios: Docker los
+      # resuelve como nombres de host dentro de su red interna.
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-traccar}
+      POSTGRES_USER: ${POSTGRES_USER:-traccar}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      TRACCAR_URL: http://traccar:8082
+      TRACCAR_API_TOKEN: ${TRACCAR_API_TOKEN:?TRACCAR_API_TOKEN es obligatorio}
+      AUTH_PASSWORD_HASH: ${AUTH_PASSWORD_HASH:?falta. Generala con pnpm hash-password}
+      AUTH_COOKIE_SECRET: ${AUTH_COOKIE_SECRET:?falta. Generalo con pnpm hash-password}
+      # Mismo origen: Caddy sirve el frontend y la API bajo un solo dominio.
+      CORS_ORIGIN: https://${DOMINIO:-localhost}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    # Sin `ports`: la API no se publica. Solo Caddy habla con ella.
+
+  web:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile.web
+    image: rastreo-web:local
+    container_name: rastreo-web
+    restart: unless-stopped
+    depends_on:
+      - api
+    environment:
+      # Vacio = ":80", es decir, Caddy escucha en HTTP sin pedir certificado.
+      # Con un dominio real consigue y renueva el de Let's Encrypt solo.
+      #
+      # El valor por omision se resuelve AQUI y no en el Caddyfile: el de Caddy
+      # solo aplica si la variable no existe, y desde un .env llega definida
+      # pero vacia.
+      DOMINIO: ${DOMINIO:-:80}
+    ports:
+      - '80:80'
+      - '443:443'
+      - '443:443/udp'   # HTTP/3
+    volumes:
+      # Los certificados sobreviven a un redespliegue. Sin esto, cada
+      # `up --build` pediria certificados nuevos y Let's Encrypt limita a cinco
+      # por semana y dominio: al sexto intento te quedas sin HTTPS varios dias.
+      - caddy-datos:/data
+      - caddy-config:/config
+
+volumes:
+  postgres-datos:
+  traccar-registros:
+  caddy-datos:
+  caddy-config:
