@@ -562,3 +562,40 @@ Esto te deja otra vez sin usuarios: hay que rehacer el paso 4.
 Cuando ya veas la flota simulada moviéndose, sigue con
 [`02-conectar-mis-gps.md`](02-conectar-mis-gps.md) para conectar tus rastreadores
 reales.
+
+---
+
+## Abrirlo desde el celular o una tablet (misma red Wi-Fi)
+
+Windows bloquea las conexiones entrantes, así que aunque el servidor escuche en
+todas las interfaces, el celular no llega. Un solo paso, una sola vez:
+
+```powershell
+.\scriptsbrir-firewall.ps1
+```
+
+Se relanza como administrador —acepta el aviso de Windows— y al terminar te
+imprime la dirección exacta que hay que escribir en el celular, marcando cuál
+de todas es la buena. Suele ser algo como `http://192.168.1.254:5173`.
+
+**El celular tiene que estar en la misma red Wi-Fi.** No hace falta configurar
+nada más: solo se abre el puerto **5173**, el del frontend. El 4000 de la API
+no se expone, porque el navegador del celular habla únicamente con Vite y es
+Vite quien consulta a la API desde el propio servidor.
+
+Para volver a cerrarlo:
+
+```powershell
+.\scriptsbrir-firewall.ps1 -Quitar
+```
+
+> **Dos límites de este modo.**
+>
+> 1. **No se puede instalar como aplicación.** Los *service workers* exigen un
+>    contexto seguro, y `http://192.168.x.x` no lo es. Funciona en el
+>    navegador, que es de lo que se trata aquí. Para tener el icono en la
+>    pantalla de inicio hace falta HTTPS — ver
+>    [`04-migrar-a-produccion.md`](04-migrar-a-produccion.md).
+> 2. **La IP puede cambiar.** La asigna el router por DHCP. Si un día deja de
+>    funcionar, vuelve a ejecutar el script para ver la nueva, o resérvala por
+>    MAC en la configuración del router.
