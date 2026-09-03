@@ -273,7 +273,15 @@ crontab -e
 ```
 
 `backup.sh` usa `pg_dump` dentro del contenedor, que produce una instantánea
-consistente. **No copies el volumen en caliente**: PostgreSQL puede estar a media
+consistente, y **verifica el archivo resultante** con `pg_restore --list` antes
+de darlo por bueno: que exista y pese megabytes no significa que sirva, y un
+dump truncado solo falla el día que hace falta restaurarlo.
+
+> **Probado de extremo a extremo el 2026-09-03.** Se restauró un respaldo en una
+> base aparte y se compararon las filas de las dos: `tc_positions` 144 324,
+> `tc_devices` 10, `tc_events` 3 520, `tc_geofences` 4, y las siete tablas del
+> esquema `app` — idénticas. La restauración recupera **los dos esquemas**, que
+> era la duda razonable al vivir en la misma base. **No copies el volumen en caliente**: PostgreSQL puede estar a media
 escritura y el respaldo sale corrupto.
 
 Un solo dump cubre los dos esquemas — el `public` de Traccar y el `app` nuestro

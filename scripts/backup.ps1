@@ -16,8 +16,19 @@
 #>
 [CmdletBinding()]
 param(
-    # Carpeta donde dejar el respaldo.
-    [string] $Destino = (Join-Path $PSScriptRoot '..\backups'),
+    # Carpeta donde dejar el respaldo. Vacio = <raiz del repo>ackups.
+    #
+    # El valor NO se calcula aqui con $PSScriptRoot. Al invocar el script
+    # como `powershell -File .\scriptsackup.ps1` -con ruta relativa- esa
+    # variable llega VACIA al evaluar los valores por omision, y Join-Path
+    # falla con "empty string not allowed" antes de ejecutar una sola linea
+    # del cuerpo.
+    #
+    # Importa mas de lo que parece: en produccion esto lo lanza el
+    # Programador de tareas o cron, donde no se controla como se invoca, y
+    # un respaldo que falla al arrancar es un respaldo que nadie echa en
+    # falta hasta que hace falta restaurar.
+    [string] $Destino = '',
 
     # Cuántos respaldos conservar. Los más viejos se borran. 0 = no borrar.
     [int] $Conservar = 14,
@@ -28,6 +39,11 @@ param(
 $ErrorActionPreference = 'Stop'
 
 $raiz = Resolve-Path (Join-Path $PSScriptRoot '..')
+
+# $PSScriptRoot si esta poblado aqui, en el cuerpo del script.
+if ([string]::IsNullOrWhiteSpace($Destino)) {
+    $Destino = Join-Path $raiz 'backups'
+}
 $envFile = Join-Path $raiz '.env'
 if (-not (Test-Path $envFile)) {
     throw "No se encontró $envFile. Copia .env.example a .env primero."
@@ -94,12 +110,46 @@ if ($info.Length -lt 1024) {
     throw 'El respaldo resultó sospechosamente pequeño; se descartó.'
 }
 
+# --- Verificacion ----------------------------------------------------------
+#
+# Que el archivo exista y pese lo suyo NO significa que sirva. Un dump truncado
+# a la mitad pesa megabytes y solo falla el dia que hace falta restaurarlo, que
+# es el peor dia posible para descubrirlo. En este mismo repositorio quedo un
+# respaldo de 0 bytes durante dias sin que nadie lo notara.
+#
+# `pg_restore --list` abre el archivo y lee su indice: si el formato esta roto
+# o el archivo esta cortado, falla aqui y ahora.
+#
+# Se verifica la copia que quedo EN EL DISCO, no la del contenedor, porque el
+# fallo historico ocurria justo en la transferencia. Se vuelve a meter con
+# `docker cp`, que copia bytes sin interpretarlos en ninguno de los dos
+# sentidos.
+$verificacion = "/tmp/verificar_$($info.Name)"
+docker cp $archivo "${Contenedor}:${verificacion}" | Out-Null
+$indice = docker exec $Contenedor pg_restore --list $verificacion 2>&1
+$codigoVerificacion = $LASTEXITCODE
+docker exec $Contenedor rm -f $verificacion 2>$null | Out-Null
+
+if ($codigoVerificacion -ne 0) {
+    Remove-Item $archivo -Force
+    Write-Host ($indice | Out-String) -ForegroundColor DarkGray
+    throw 'El respaldo no se puede leer; se descarto. NO hay copia utilizable.'
+}
+
+# Un dump valido pero vacio -por ejemplo, apuntando a una base recien creada-
+# tambien es inutil, y pg_restore no se queja de eso.
+$tablas = ($indice | Select-String -Pattern 'TABLE DATA').Count
+if ($tablas -lt 1) {
+    Remove-Item $archivo -Force
+    throw 'El respaldo no contiene datos de ninguna tabla; se descarto.'
+}
+
 $legible = if ($info.Length -lt 1MB) {
     "$([math]::Round($info.Length / 1KB)) KB"
 } else {
     "$([math]::Round($info.Length / 1MB, 2)) MB"
 }
-Write-Host "OK  $($info.Name)  ($legible)" -ForegroundColor Green
+Write-Host "OK  $($info.Name)  ($legible, $tablas tablas verificadas)" -ForegroundColor Green
 
 # --- Rotación -------------------------------------------------------------
 if ($Conservar -gt 0) {
