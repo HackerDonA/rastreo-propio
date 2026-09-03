@@ -114,10 +114,17 @@ export function BarraFlota({
       <div className="flex items-center gap-3">
         <div
           className="borde flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs"
+          /*
+           * Lo que mide este indicador es el WebSocket ENTRE EL NAVEGADOR Y LA
+           * API, no el enlace de la API con Traccar. Decir "sin conexión con
+           * Traccar" mandaba a revisar los contenedores, que es el sitio
+           * equivocado: pueden estar perfectamente sanos y aun así verse esto.
+           * El estado real de Traccar se consulta en /health.
+           */
           title={
             enVivo
-              ? 'La API mantiene abierta su conexión con Traccar'
-              : 'Sin conexión con Traccar. Revisa que los contenedores estén arriba.'
+              ? 'Recibiendo posiciones en vivo'
+              : 'Sin el flujo en vivo: los datos se ven, pero no se actualizan solos. Recarga la página; si sigue, revisa que la API esté arriba.'
           }
         >
           <span

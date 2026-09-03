@@ -6,6 +6,7 @@
  */
 
 import type { FleetSummary, Unit } from './tipos.ts';
+import { resolverWsUrl } from './ws-url.ts';
 
 /*
  * Direccion de la API.
@@ -32,10 +33,23 @@ export const API_URL: string = import.meta.env['VITE_API_URL'] ?? '';
  * Se deriva de la pagina cuando no esta configurada, para que herede su host y
  * su esquema. Escribir `ws://` fijo funcionaria en desarrollo y fallaria en
  * produccion: sobre HTTPS el navegador bloquea un WebSocket sin cifrar.
+ *
+ * OJO CON `??` AQUI
+ * -----------------
+ * Una variable declarada como `VITE_WS_URL=` en el .env no llega como
+ * `undefined`: llega como CADENA VACIA. Y `??` solo sustituye null o undefined,
+ * asi que dejaba la URL en '' y `new WebSocket('')` falla al instante.
+ *
+ * El sintoma era desconcertante: la aplicacion cargaba, los datos se veian, y
+ * solo el indicador de la barra decia "Sin conexion" para siempre. Todo lo que
+ * va por HTTP seguia funcionando porque ahi la cadena vacia es justo lo que se
+ * quiere: una URL relativa al mismo origen.
  */
-const WS_URL: string =
-  import.meta.env['VITE_WS_URL'] ??
-  `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws`;
+const WS_URL: string = resolverWsUrl(
+  import.meta.env['VITE_WS_URL'],
+  window.location.protocol,
+  window.location.host,
+);
 
 export class ApiError extends Error {
   constructor(

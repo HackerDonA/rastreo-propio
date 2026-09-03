@@ -399,6 +399,36 @@ para descubrirlo. Lo encontró una prueba, no el compilador: los tipos estaban
 perfectos. También hubo que envolver `scrypt` a mano en vez de usar
 `promisify`, que se queda con la sobrecarga que *no* acepta opciones.
 
+**Tres fallos seguidos que `curl` no podía ver.** Verificar una aplicación web
+desde la terminal deja un punto ciego enorme, y en una misma tarde se cobró
+tres piezas que desde `curl` respondían perfectamente:
+
+- **CORS.** `@fastify/cors` solo anuncia `GET, HEAD, POST` si no se le declaran
+  los métodos, así que el navegador bloqueaba `DELETE` **antes de enviarlo**.
+  `curl` va directo al método y jamás dispara el *preflight*.
+- **IPv4 contra IPv6.** Vite escucha en `::` y la API en `127.0.0.1`. En
+  Windows `localhost` resuelve primero a `::1`, así que el navegador pedía a
+  una dirección donde no había nadie. `curl` lo disimula porque, si una
+  dirección falla, prueba la siguiente.
+- **`SameSite=Strict`.** Al mover el frontend a otro host para esquivar lo
+  anterior, la cookie de sesión dejó de viajar: el navegador la guardaba y no
+  la reenviaba. Entrar respondía 200 y la siguiente petición 401. `curl` no
+  implementa `SameSite` en absoluto.
+
+La solución de fondo fue dejar de sortear el problema y quitarlo: el proxy de
+Vite hace que el navegador hable **solo con su propio origen**, lo que elimina
+los tres a la vez y además se parece a producción, donde Caddy sirve el
+frontend y la API bajo un mismo dominio.
+
+**`??` no protege de una cadena vacía, y `.env` está lleno de ellas.** Declarar
+`VITE_WS_URL=` no produce `undefined` sino `''`, así que el valor por omisión
+nunca se aplicaba y el WebSocket se abría contra una URL vacía. El síntoma
+apuntaba al sitio equivocado: la aplicación cargaba, los datos se veían —por
+HTTP la cadena vacía es justo lo que se quiere, una ruta relativa— y solo un
+indicador decía «Sin conexión». La lógica vive ahora en una función pura con
+pruebas, separada de `api.ts` precisamente para poder probarla sin simular un
+navegador entero.
+
 **Ejecutar un script no es lo mismo que leerlo.** El respaldo en PowerShell
 parecía correcto y fallaba siempre: canalizar la salida de `pg_dump` hace que
 PowerShell la convierta a texto y corrompa el binario. Y la restauración
