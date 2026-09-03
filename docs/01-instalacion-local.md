@@ -578,6 +578,12 @@ Se relanza como administrador —acepta el aviso de Windows— y al terminar te
 imprime la dirección exacta que hay que escribir en el celular, marcando cuál
 de todas es la buena. Suele ser algo como `http://192.168.1.254:5173`.
 
+**Si el celular sigue sin entrar, casi siempre es esto:** Windows marca toda
+red nueva como *pública*, y una regla de firewall privada **no se aplica ahí**.
+No avisa de nada — la regla aparece creada y habilitada, y la conexión se
+rechaza igual. El script lo detecta y se ofrece a marcar tu Wi-Fi como privada,
+que es lo correcto para una red de casa.
+
 **El celular tiene que estar en la misma red Wi-Fi.** No hace falta configurar
 nada más: solo se abre el puerto **5173**, el del frontend. El 4000 de la API
 no se expone, porque el navegador del celular habla únicamente con Vite y es

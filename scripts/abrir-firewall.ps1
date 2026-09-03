@@ -100,6 +100,47 @@ if ($existente) {
 }
 
 # ---------------------------------------------------------------------------
+#  La trampa: red clasificada como "pública"
+# ---------------------------------------------------------------------------
+#
+# Una regla de perfil Private NO se aplica en una red que Windows considera
+# pública, y no avisa de nada: la regla aparece creada y habilitada, y la
+# conexión se sigue rechazando en silencio. Es el fallo más probable de todo
+# este script, así que se comprueba explícitamente.
+#
+# Windows marca como pública toda red nueva salvo que se le diga lo contrario,
+# de modo que un Wi-Fi de casa acaba ahí por omisión.
+
+$publicas = @(Get-NetConnectionProfile | Where-Object { $_.NetworkCategory -eq 'Public' })
+
+if ($publicas.Count -gt 0) {
+    Write-Host ''
+    Aviso 'Tu red está marcada como PÚBLICA, y la regla solo aplica en redes privadas.'
+    Info  'Mientras siga así, el celular no va a poder conectarse.'
+    Write-Host ''
+    foreach ($p in $publicas) {
+        Info "  - $($p.Name)  (interfaz: $($p.InterfaceAlias))"
+    }
+    Write-Host ''
+    Info 'Marcarla como PRIVADA le dice a Windows "esta es mi red de casa, confío'
+    Info 'en los equipos que hay en ella". Es lo correcto para tu Wi-Fi, y lo que'
+    Info 'hace falta aquí. No lo hagas en la red de un café o un aeropuerto.'
+    Write-Host ''
+
+    $respuesta = Read-Host '  ¿Marcarlas como privadas? (s/n)'
+    if ($respuesta -match '^[sSyY]') {
+        foreach ($p in $publicas) {
+            Set-NetConnectionProfile -InterfaceIndex $p.InterfaceIndex -NetworkCategory Private
+            Ok "'$($p.Name)' ahora es una red privada."
+        }
+    } else {
+        Aviso 'Sin ese cambio, el celular seguirá sin poder entrar.'
+        Info  'Puedes hacerlo también en Configuración -> Red e Internet -> Wi-Fi'
+        Info  '-> (tu red) -> Tipo de perfil de red -> Privada.'
+    }
+}
+
+# ---------------------------------------------------------------------------
 #  Decirle al usuario la URL que tiene que escribir
 # ---------------------------------------------------------------------------
 #
