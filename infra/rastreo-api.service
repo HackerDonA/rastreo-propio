@@ -1,0 +1,91 @@
+# =============================================================================
+#  Unidad de systemd para el BFF — SOLO PRODUCCION (Raspberry Pi o VPS)
+# =============================================================================
+#  En desarrollo, en Windows, esto no se usa: la API la arranca iniciar.ps1.
+#
+#  POR QUE HACE FALTA
+#  ------------------
+#  Sin esto, la API se arranca a mano con `pnpm start` sobre una sesion SSH, y
+#  entonces se muere al cerrar la sesion y no vuelve tras un corte de luz. Para
+#  una flota que reporta las 24 horas eso significa perder posiciones sin que
+#  nadie se entere hasta que alguien pregunta por que un camion "no aparece".
+#
+#  Traccar y PostgreSQL no necesitan esto: Docker Compose ya los reinicia solo
+#  (`restart: unless-stopped`). El unico que quedaba sin red de seguridad era
+#  el BFF.
+#
+#  INSTALACION
+#  -----------
+#      sudo cp infra/rastreo-api.service /etc/systemd/system/
+#      sudo nano /etc/systemd/system/rastreo-api.service   # revisa las rutas
+#      sudo systemctl daemon-reload
+#      sudo systemctl enable --now rastreo-api
+#
+#  COMPROBAR
+#  ---------
+#      systemctl status rastreo-api
+#      journalctl -u rastreo-api -f          # los logs en vivo
+#
+#  Y la prueba de verdad, que es la unica que cuenta:
+#      sudo reboot
+#      # al volver:  curl -s localhost:4000/health
+# =============================================================================
+
+[Unit]
+Description=Rastreo propio - BFF (API)
+Documentation=https://github.com/HackerDonA/rastreo-propio
+# La API necesita PostgreSQL, que corre en Docker. `After` solo ordena el
+# arranque; no espera a que la base este LISTA, por eso ademas hay reintentos
+# mas abajo.
+After=network-online.target docker.service
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=simple
+
+# Usuario sin privilegios. NO uses root: esta API habla con internet y una de
+# sus rutas apaga el motor de un vehiculo.
+User=rastreo
+Group=rastreo
+
+WorkingDirectory=/srv/rastreo-propio/apps/api
+
+# Lee el .env de la raiz, el mismo que usan Docker Compose y el frontend.
+EnvironmentFile=/srv/rastreo-propio/.env
+Environment=NODE_ENV=production
+
+# Ruta absoluta a node: systemd no hereda el PATH de tu shell, asi que un
+# `node` a secas falla con "executable not found" aunque funcione por SSH.
+# Comprueba la tuya con:  which node
+ExecStart=/usr/bin/node dist/server.js
+
+# Si la API muere, volver a levantarla. RestartSec da margen a que PostgreSQL
+# termine de arrancar tras un corte de luz, en vez de reintentar en bucle.
+Restart=always
+RestartSec=10
+
+# systemd se rinde si algo se reinicia demasiado seguido. Con estos valores
+# tolera un fallo cada 30 s indefinidamente, que es lo que se quiere para un
+# servicio que debe estar siempre arriba.
+StartLimitIntervalSec=0
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=rastreo-api
+
+# ---- Endurecimiento -------------------------------------------------------
+# Barato de activar y reduce mucho lo que un fallo puede tocar.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+# La API no escribe en disco; todo su estado vive en PostgreSQL. Si algun dia
+# necesita escribir, agrega aqui la ruta con ReadWritePaths=.
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+
+[Install]
+WantedBy=multi-user.target

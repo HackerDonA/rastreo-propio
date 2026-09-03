@@ -32,14 +32,14 @@ rastreo.midominio.duckdns.org {
 	# ---- Nuestra API (BFF) --------------------------------------------------
 	# Todo lo que empiece con /api va al BFF de Fastify.
 	handle /api/* {
-		reverse_proxy localhost:3000
+		reverse_proxy localhost:4000
 	}
 
 	# ---- WebSocket propio ---------------------------------------------------
 	# Caddy detecta y reenvia el upgrade de WebSocket automaticamente; no hace
 	# falta configuracion extra como en nginx.
 	handle /ws {
-		reverse_proxy localhost:3000
+		reverse_proxy localhost:4000
 	}
 
 	# ---- Frontend -----------------------------------------------------------

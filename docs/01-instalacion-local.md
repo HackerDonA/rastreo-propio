@@ -267,13 +267,13 @@ pnpm dev
 
 Arranca las dos cosas en paralelo:
 
-- API (Fastify) en <http://localhost:3000>
+- API (Fastify) en <http://localhost:4000>
 - Frontend (Vite) en <http://localhost:5173>
 
 Comprueba la API:
 
 ```powershell
-Invoke-RestMethod http://localhost:3000/health
+Invoke-RestMethod http://localhost:4000/health
 ```
 
 ```

@@ -152,6 +152,51 @@ antes de arrancar Caddy (necesita el 80 para validar el certificado).
 
 ---
 
+## Paso 4.5 · Que la API sobreviva a un reinicio
+
+Traccar y PostgreSQL ya se levantan solos: Docker Compose los declara con
+`restart: unless-stopped`. **El BFF no.** Arrancado a mano con `pnpm start`
+sobre una sesión SSH, se muere en cuanto cierras la sesión y no vuelve tras un
+corte de luz — y con una flota que reporta las 24 horas, eso son posiciones
+perdidas que nadie nota hasta que alguien pregunta por qué un camión «no
+aparece».
+
+Compila y deja el servicio instalado:
+
+```bash
+cd /srv/rastreo-propio
+pnpm install --frozen-lockfile
+pnpm build
+
+sudo cp infra/rastreo-api.service /etc/systemd/system/
+sudo nano /etc/systemd/system/rastreo-api.service   # revisa rutas y usuario
+sudo systemctl daemon-reload
+sudo systemctl enable --now rastreo-api
+```
+
+Dos cosas que hay que ajustar en el archivo antes de habilitarlo:
+
+- **`User=rastreo`** — créalo si no existe (`sudo useradd -r -s /usr/sbin/nologin
+  rastreo`). No lo dejes en `root`: esta API está expuesta a internet y una de
+  sus rutas apaga el motor de un vehículo.
+- **`ExecStart=/usr/bin/node`** — comprueba la ruta real con `which node`.
+  systemd no hereda tu `PATH`, así que un `node` a secas falla con *executable
+  not found* aunque por SSH funcione perfectamente.
+
+Ver que arrancó no es suficiente. **La única comprobación que cuenta es
+reiniciar de verdad:**
+
+```bash
+sudo reboot
+# cuando vuelva:
+curl -s localhost:4000/health
+systemctl status rastreo-api
+```
+
+Si algo falla, los logs están en `journalctl -u rastreo-api -f`.
+
+---
+
 ## Paso 5 · Endurecer
 
 ### La contraseña de la API no es opcional aquí
@@ -281,6 +326,7 @@ resumen:
 - [ ] Admin de Traccar creado con contraseña propia
 - [ ] Token de API nuevo generado
 - [ ] Caddy sirviendo HTTPS con certificado válido
+- [ ] `rastreo-api.service` habilitado y **probado con un reinicio real**
 - [ ] Puertos reenviados: solo los necesarios
 - [ ] Puerto 8082 **no** publicado a internet
 - [ ] `protocols.enable` limitado a tus protocolos
