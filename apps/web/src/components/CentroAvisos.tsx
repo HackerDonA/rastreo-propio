@@ -228,7 +228,7 @@ export function CentroAvisos({ entrantes, onIrAUnidad }: Props): JSX.Element {
               onIrAUnidad(e.deviceId);
               setEmergentes((p) => p.filter((x) => x.id !== e.id));
             }}
-            className={`borde panel entrar-derecha pointer-events-auto w-80 rounded-2xl border-l-4 p-3.5 text-left sombra-alta
+            className={`borde panel entrar-derecha pointer-events-auto w-[min(20rem,calc(100vw-1.5rem))] rounded-2xl border-l-4 p-3.5 text-left sombra-alta
                         ${e.severity === 'alarm' ? 'border-l-red-600' : 'border-l-amber-500'}`}
           >
             <div className="flex items-start gap-2">

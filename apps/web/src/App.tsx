@@ -434,20 +434,60 @@ export function App(): JSX.Element {
             recorrido={recorrido}
           />
 
-          {/* Controles sobre el mapa */}
-          <div className="absolute top-4 left-4 z-10 flex gap-2">
+          {/*
+            Controles sobre el mapa.
+
+            En un telefono estos controles compiten con el mapa por el unico
+            recurso escaso que hay: la pantalla. Con las etiquetas completas la
+            fila mide unos 470 px y un iPhone tiene 390, asi que se salia por
+            la derecha y ademas tapaba una franja del mapa.
+
+            Por eso en pantallas chicas todo va en iconos y el selector de capa
+            pasa a ser un <select> nativo: el sistema operativo lo abre en una
+            rueda a pantalla completa, con objetivos tactiles enormes y sin una
+            linea de codigo de menu propio. A partir de `sm` vuelven los
+            botones con texto, que en un raton se leen de un vistazo.
+          */}
+          <div className="segura-lados absolute top-3 left-3 z-10 flex max-w-[calc(100%-1.5rem)] flex-wrap gap-2 sm:top-4 sm:left-4">
             <button
               type="button"
               onClick={() => {
                 setPanelAbierto(true);
               }}
-              className="borde panel rounded-lg border px-3 py-2 text-sm font-medium
-                         sombra-suave md:hidden"
+              aria-label={`Ver las ${String(unidades.length)} unidades`}
+              className="toque borde panel flex items-center gap-1.5 rounded-lg border px-2.5
+                         text-sm font-medium sombra-suave md:hidden"
             >
-              Unidades ({unidades.length})
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4" aria-hidden="true">
+                <path d="M4 6h16M4 12h16M4 18h16" strokeLinecap="round" />
+              </svg>
+              {unidades.length}
             </button>
 
-            <div className="borde panel flex overflow-hidden rounded-lg border sombra-suave">
+            {/* Selector de capa: rueda nativa en movil */}
+            <select
+              value={capa}
+              onChange={(e) => {
+                const c = e.target.value as CapaMapa;
+                setCapa(c);
+                try {
+                  localStorage.setItem('capaMapa', c);
+                } catch {
+                  // En modo privado no se recuerda. Aceptable.
+                }
+              }}
+              aria-label="Capa del mapa"
+              className="toque borde panel rounded-lg border px-2.5 text-xs font-medium sombra-suave sm:hidden"
+            >
+              {(Object.keys(CAPAS) as CapaMapa[]).map((c) => (
+                <option key={c} value={c}>
+                  {CAPAS[c].etiqueta}
+                </option>
+              ))}
+            </select>
+
+            {/* Selector de capa: botones en pantallas grandes */}
+            <div className="borde panel hidden overflow-hidden rounded-lg border sombra-suave sm:flex">
               {(Object.keys(CAPAS) as CapaMapa[]).map((c) => (
                 <button
                   key={c}
@@ -476,12 +516,15 @@ export function App(): JSX.Element {
               type="button"
               onClick={cambiarNombres}
               aria-pressed={mostrarNombres}
+              aria-label={
+                mostrarNombres ? 'Ocultar los nombres' : 'Mostrar los nombres'
+              }
               title={
                 mostrarNombres
                   ? 'Ocultar los nombres y dejar solo el ícono'
                   : 'Mostrar el nombre de cada unidad'
               }
-              className={`borde panel flex items-center gap-1.5 rounded-lg border px-2.5 py-2
+              className={`toque borde panel flex items-center gap-1.5 rounded-lg border px-2.5
                           text-xs font-medium sombra-suave transition ${
                             mostrarNombres ? '' : 'texto-suave'
                           }`}
@@ -489,7 +532,7 @@ export function App(): JSX.Element {
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4" aria-hidden="true">
                 <path d="M4 7h16M4 12h10M4 17h7" strokeLinecap="round" />
               </svg>
-              Nombres
+              <span className="hidden sm:inline">Nombres</span>
             </button>
           </div>
 
@@ -518,10 +561,11 @@ export function App(): JSX.Element {
               <div className="borde panel pointer-events-auto max-w-sm rounded-2xl border p-5 text-center sombra-alta">
                 <h2 className="mb-1 text-sm font-semibold">No hay unidades todavía</h2>
                 <p className="texto-suave mb-3 text-sm">
-                  Arranca el simulador para ver una flota moviéndose.
+                  Aún no hay ningún GPS reportando. Para ver una flota de prueba
+                  moviéndose, arranca el simulador:
                 </p>
-                <code className="block rounded-lg bg-black/5 px-3 py-2 text-xs dark:bg-white/10">
-                  pnpm simulate --units 10 --city cdmx
+                <code className="block rounded-lg bg-black/5 px-3 py-2 text-xs break-all dark:bg-white/10">
+                  .\iniciar.ps1
                 </code>
               </div>
             </div>
