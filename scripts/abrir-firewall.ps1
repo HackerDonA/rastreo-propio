@@ -28,14 +28,28 @@
 #>
 [CmdletBinding()]
 param(
-    # Eliminar la regla en vez de crearla.
-    [switch] $Quitar
+    # Eliminar las reglas en vez de crearlas.
+    [switch] $Quitar,
+
+    # Abrir tambien los puertos de los RASTREADORES GPS (5001 y 5023).
+    #
+    # Va aparte del puerto del frontend a proposito: son cosas distintas. El
+    # 5173 lo abre tu celular desde el sofa; el 5001 y el 5023 los abre un
+    # equipo que esta en la calle, conectado por la red de Telcel, y para que
+    # llegue hace falta ADEMAS reenviar esos puertos en el router.
+    [switch] $Gps
 )
 
 $ErrorActionPreference = 'Stop'
 
 $NOMBRE = 'Rastreo - frontend (5173)'
 $PUERTO = 5173
+
+# Puertos de protocolo de los rastreadores. Cada uno corresponde a un equipo
+# concreto; no se abren "por si acaso" porque cada puerto abierto es superficie
+# de ataque.
+$NOMBRE_GPS = 'Rastreo - rastreadores GPS (5001, 5023)'
+$PUERTOS_GPS = @(5001, 5023)
 
 function Ok([string] $t)    { Write-Host "  OK   $t" -ForegroundColor Green }
 function Info([string] $t)  { Write-Host "       $t" -ForegroundColor DarkGray }
@@ -60,7 +74,11 @@ if (-not $esAdmin) {
         '-NoProfile', '-ExecutionPolicy', 'Bypass',
         '-File', "`"$PSCommandPath`""
     )
+    # Hay que reenviar TODOS los conmutadores. Si se olvida uno, el script
+    # elevado hace algo distinto de lo que se pidio y no avisa: se ejecuta
+    # "correctamente" sin haber abierto lo que hacia falta.
     if ($Quitar) { $argumentos += '-Quitar' }
+    if ($Gps)    { $argumentos += '-Gps' }
     Start-Process -FilePath 'powershell.exe' -Verb RunAs -ArgumentList $argumentos
     return
 }
@@ -72,11 +90,15 @@ Write-Host ''
 # ---------------------------------------------------------------------------
 
 if ($Quitar) {
-    $existente = Get-NetFirewallRule -DisplayName $NOMBRE -ErrorAction SilentlyContinue
-    if ($existente) {
-        Remove-NetFirewallRule -DisplayName $NOMBRE
-        Ok 'Regla eliminada. El puerto vuelve a estar cerrado.'
-    } else {
+    $algo = $false
+    foreach ($n in @($NOMBRE, $NOMBRE_GPS)) {
+        if (Get-NetFirewallRule -DisplayName $n -ErrorAction SilentlyContinue) {
+            Remove-NetFirewallRule -DisplayName $n
+            Ok "Regla eliminada: $n"
+            $algo = $true
+        }
+    }
+    if (-not $algo) {
         Info 'No había ninguna regla que quitar.'
     }
     Write-Host ''
@@ -97,6 +119,27 @@ if ($existente) {
         -Direction Inbound -Protocol TCP -LocalPort $PUERTO `
         -Action Allow -Profile Private | Out-Null
     Ok "Puerto $PUERTO abierto para la red local."
+}
+
+if ($Gps) {
+    $existenteGps = Get-NetFirewallRule -DisplayName $NOMBRE_GPS -ErrorAction SilentlyContinue
+    if ($existenteGps) {
+        Ok 'La regla de los rastreadores ya existía.'
+    } else {
+        New-NetFirewallRule -DisplayName $NOMBRE_GPS `
+            -Description 'Permite que los rastreadores GPS lleguen a Traccar desde internet.' `
+            -Direction Inbound -Protocol TCP -LocalPort $PUERTOS_GPS `
+            -Action Allow -Profile Any | Out-Null
+        Ok "Puertos $($PUERTOS_GPS -join ' y ') abiertos para los rastreadores."
+    }
+    Write-Host ''
+    Info 'ESTO SOLO ES LA MITAD. El rastreador está en la calle, no en tu red:'
+    Info 'hay que reenviar además los puertos 5001 y 5023 en el router, hacia'
+    Info 'la IP local de esta máquina. Ver docs/04-migrar-a-produccion.md.'
+    Write-Host ''
+    Info 'Perfil "Any" a propósito, y no "Private" como el del frontend: el'
+    Info 'tráfico llega desde internet, y limitarlo a redes privadas lo'
+    Info 'bloquearía en cuanto Windows reclasifique la red.'
 }
 
 # ---------------------------------------------------------------------------
